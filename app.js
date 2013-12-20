@@ -9,9 +9,13 @@ p.on('connect', function(d) {
   m.putInt32(70000); // version
   m.putInt64(1); // services
   m.putInt64(Math.round(new Date().getTime()/1000)); // timestamp
-  
-  // ...
-  
+  m.pad(26); // addr_me
+  m.pad(26); // addr_you
+  m.putInt64(42); // nonce
+  m.putVarString('Node.js lite peer');
+  m.putInt32(10); // start_height
+  var raw = m.build('version');
+  console.log(raw);
 });
 p.on('end', function(d) {
   console.log('end');
