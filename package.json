@@ -1,0 +1,13 @@
+{
+  "name": "crypto-p2p",
+  "version": "0.1.0",
+  "description": "Create a peer-to-peer relationship",
+  "main": "./lib/p2p.js",
+
+  "dependencies": {
+	  "eckey": "0.1.x",
+    "cryptocoin-bigint": "0.1.x"
+  },
+
+  "author": "Brooks Boyd <boydb@midnightdesign.ws>"
+}
