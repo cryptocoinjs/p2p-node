@@ -18,8 +18,8 @@ p.on('connect', function(d) {
   m.putInt32(10); // start_height
   
   var raw = m.build('version');
-  //console.log(DataViewToHex(raw));
-  p.send(DataViewToArray(raw));
+  //console.log(raw.toString('hex'));
+  p.send(raw);
 });
 p.on('end', function(d) {
   console.log('end');
@@ -28,7 +28,7 @@ p.on('error', function(d) {
   console.log('error', d);
 });
 p.on('message', function(d) {
-  console.log('message', d.command, DataViewToHex(d.data));
+  console.log('message', d.command, d.data.toString('hex'));
 });
 
 process.on('SIGINT', function() {
@@ -38,18 +38,3 @@ process.on('SIGINT', function() {
 });
 
 p.connect();
-
-function DataViewToArray(dv) {
-  if (dv instanceof DataView === false) return false;
-  return Array.prototype.slice.apply(new Uint8Array(dv.buffer));
-}
-
-function DataViewToHex(dv) {
-  if (dv instanceof DataView === false) return false;
-  return DataViewToArray(dv).map(function(x) { return ('000'+x.toString(16)).slice(-2); }).join('');
-}
-
-function DataViewToBinary(dv) {
-  if (dv instanceof DataView === false) return false;
-  return DataViewToArray(dv).map(function(x) { return String.fromCharCode(x); }).join('');
-}
