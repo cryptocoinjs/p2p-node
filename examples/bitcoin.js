@@ -1,11 +1,13 @@
-var Peer = require('./lib/Peer');
+var Peer = require('../lib/Peer').Peer;
+var Message = require('./Message').Message;
 
-var p = new Peer.Peer('dnsseed.bitcoin.dashjr.org');
+var p = new Peer('dnsseed.bitcoin.dashjr.org');
 
 p.on('connect', function(d) {
   console.log('connect');
-  // Send VERSION
-  var m = new Peer.Message(p.magicBytes, true);
+
+  // Send VERSION message
+  var m = new Message(p.magicBytes, true);
   m.putInt32(70000); // version
   m.putInt64(1); // services
   m.putInt64(Math.round(new Date().getTime()/1000)); // timestamp
@@ -14,6 +16,7 @@ p.on('connect', function(d) {
   m.putInt64(0x1234); // nonce
   m.putVarString('Node.js lite peer');
   m.putInt32(10); // start_height
+  
   var raw = m.build('version');
   //console.log(DataViewToHex(raw));
   p.send(DataViewToArray(raw));
