@@ -1,8 +1,7 @@
 var Peer = require('../lib/Peer').Peer;
 var Message = require('./Message').Message;
 
-var p = new Peer('testnet-seed.bitcoin.petertodd.org', 18333);
-p.magicBytes = 0x0709110B;
+var p = new Peer('testnet-seed.bitcoin.petertodd.org', 18333, 0x0709110B);
 
 p.on('connect', function(d) {
   console.log('connect');
