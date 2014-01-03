@@ -1,8 +1,8 @@
 {
-  "name": "crypto-p2p",
+  "name": "crypto-p2p-node",
   "version": "0.1.0",
   "description": "Create a peer-to-peer relationship",
-  "main": "./lib/p2p.js",
+  "main": "./lib/Peer.js",
 
   "dependencies": {
 	  "sha256": "0.1.x"
