@@ -5,7 +5,7 @@
   "main": "./lib/Peer.js",
 
   "dependencies": {
-	  "sha256": "0.1.x"
+    "sha256": "0.1.x"
   },
 
   "author": "Brooks Boyd <boydb@midnightdesign.ws>"
