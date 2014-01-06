@@ -12,6 +12,7 @@ It uses the [Bitcoin protocol structure](https://en.bitcoin.it/wiki/Protocol_spe
 The default Magic Bytes and default Port to connect to are set to the Bitcoin protocol. 
 
 ## Usage
+
 ```js
 var Peer = require('Peer').Peer;
 
@@ -26,20 +27,24 @@ p.on('message', function(d) {
 
 `Peer` is an [EventEmitter](http://nodejs.org/api/events.html) with the following events:
 
-## Connect
+## Events
+
+### `connect`
 When the socket connects
 
 Data object passed to listeners:
+
 ```
 {
   peer: Peer
 }
 ```
 
-## Error
+### `error`
 If the socket errors out
 
 Data object passed to listeners:
+
 ```
 {
   peer: Peer,
@@ -47,24 +52,36 @@ Data object passed to listeners:
 }
 ```
 
-## End
+### `end`
 When the socket disconnects
 
 Data object passed to listeners:
+
 ```
 {
   peer: Peer
 }
 ```
 
-## Message
+### `message`
 When a complete message has arrived
 
 Data object passed to listeners:
+
 ```
 {
   peer: Peer,
   command: String,
   data: Raw payload as binary data
+}
+```
+
+### `commandMessage`
+An alternate version of the `peerMessage` event; in these events, the command of the message is used as the event name (i.e. command `'foo'` would cause a `fooMessage` event).
+
+```
+{
+	peer: Peer,
+	data: Raw payload as binary data
 }
 ```
