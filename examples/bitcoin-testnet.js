@@ -17,9 +17,8 @@ p.on('connect', function(d) {
   m.putVarString('Node.js lite peer');
   m.putInt32(10); // start_height
   
-  var raw = m.build('version');
-  console.log(raw.toString('hex'));
-  p.send(raw);
+  //console.log(m.raw().toString('hex'));
+  p.send('version', m.raw());
 });
 p.on('end', function(d) {
   console.log('end');

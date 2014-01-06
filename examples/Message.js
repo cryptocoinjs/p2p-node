@@ -8,18 +8,9 @@ var Message = exports.Message = function Message(magic) {
 Message.prototype.checksum = function checksum() {
   return new Buffer(sha256.x2(this.buffer.slice(0, this.cursor), { asBytes:true }));
 };
-Message.prototype.build = function build(command) {
-  var out = new Buffer(this.cursor + 24);
-  out.writeUInt32LE(this.magicBytes, 0); // magic
-  
-  for (var i = 0; i < 12; i++) {
-    var num = (i >= command.length)? 0 : command.charCodeAt(i);
-    out.writeUInt8(num, 4+i); // command
-  }
-  
-  out.writeUInt32LE(this.cursor, 16); // length
-  this.checksum().copy(out, 20); // checksum
-  this.buffer.copy(out, 24, 0, this.cursor); // payload
+Message.prototype.raw = function raw() {
+  var out = new Buffer(this.cursor);
+  this.buffer.copy(out, 0, 0, this.cursor);
   return out;
 };
 Message.prototype.pad = function pad(num) {
