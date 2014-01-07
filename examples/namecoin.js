@@ -1,7 +1,7 @@
 var Peer = require('../lib/Peer').Peer;
 var Message = require('./Message').Message;
 
-var p = new Peer(0x291f20b2, 8333, 0xFEB4BEF9);
+var p = new Peer(0x291f20b2, 8334, 0xFEB4BEF9);
 
 p.on('connect', function(d) {
   console.log('connect');
