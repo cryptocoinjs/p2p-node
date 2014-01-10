@@ -1,11 +1,22 @@
 {
-  "name": "crypto-p2p-node",
+  "name": "p2p-node",
   "version": "0.1.0",
   "description": "Create a peer-to-peer relationship",
+  "keywords": [
+    "p2p",
+    "network",
+    "peers",
+    "cryptography"
+  ],
   "main": "./lib/Peer.js",
 
   "dependencies": {
     "sha256": "0.1.x"
+  },
+
+  "repository": {
+    "url": "https://github.com/cryptocoinjs/p2p-node",
+    "type": "git"
   },
 
   "author": "Brooks Boyd <boydb@midnightdesign.ws>"
