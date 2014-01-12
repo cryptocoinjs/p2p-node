@@ -34,14 +34,25 @@ dns.resolve4('bootstrap8444.bitmessage.org', function(err, addrs) {
 });
 
 var p = false;
+var shutdown = false;
 var hangupTimer = false;
+var verackTimer = false;
 
 function tryLaunch(hosts) {
-  clearTimeout(hangupTimer);
-  var host = hosts.pop();
-  console.log('connecting to '+host);
-  p = new Peer(host, 8444, 0xE9BEB4D9);
+  if (hosts.length == 0) {
+    console.log('out of potential connections...');
+    return;
+  }
+  console.log('Finding new peer from pool of '+hosts.length+' potential peers');
+  p = new Peer(hosts.pop(), 8444, 0xE9BEB4D9);
+  console.log('connecting to '+p.getUUID());
   
+  var hangupTimer = setTimeout(function() { // Give them a few seconds to respond, otherwise close the connection automatically
+    console.log('Peer never connected; hanging up');
+    p.destroy();
+  }, 5*1000);
+  hangupTimer.unref();
+
   // Override message checksum to be SHA512
   p.messageChecksum = function(msg) {
     var sha512 = crypto.createHash('sha512');
@@ -51,6 +62,7 @@ function tryLaunch(hosts) {
 
   p.on('connect', function(d) {
     console.log('connect');
+    clearTimeout(hangupTimer);
 
     // Send VERSION message
     var m = new Message(p.magicBytes, true);
@@ -64,8 +76,17 @@ function tryLaunch(hosts) {
     m.putVarInt(1); // number of streams
     m.putVarInt(1); // Stream I care about
   
-    console.log(m.raw().toString('hex'));
-    // TODO: Bitmessage uses SHA-512 for checksum calculation; make that configurable in Peer
+    //console.log(m.raw().toString('hex'));
+    console.log('Sending VERSION message');
+    verackTimeout = setTimeout(function() {
+      console.log('No VERACK received; disconnect');
+      p.destroy();
+    }, 10000);
+    verackTimeout.unref();
+    p.once('verackMessage', function() {
+      console.log('VERACK received; this peer is active now');  
+      clearTimeout(verackTimeout);
+    });
     p.send('version', m.raw());
   });
   p.on('end', function(d) {
@@ -75,22 +96,39 @@ function tryLaunch(hosts) {
     console.log('error', d.error);
     if (hosts.length > 0) tryLaunch(hosts);
   });
+  p.on('close', function(d) {
+    console.log('close', d);
+    if (shutdown === false) {
+      console.log('Connection closed, trying next...');
+      setImmediate(function() {
+        clearTimeout(connectTimeout);
+        clearTimeout(verackTimeout);
+        findPeer(pool);
+      });
+    }
+  });
+
   p.on('message', function(d) {
     console.log('message', d.command, d.data.toString('hex'));
   });
   
   p.connect();
-  var hangupTimer = setTimeout(function() {
-    if (p.state == 'connecting') {
-      console.log(p.getUUID()+' is not connecting; hanging up');
-      p.destroy();
-      if (hosts.length > 0) tryLaunch(hosts);
-    }
-  }, 5*1000).unref();
 }
 
-process.on('SIGINT', function() {
+process.once('SIGINT', function() {
+  shutdown = true;
   console.log('Got SIGINT; closing...');
+  var watchdog = setTimeout(function() {
+    console.log('Peer didn\'t close gracefully; force-closing');
+    p.destroy();
+  }, 10000);
+  watchdog.unref();
+  p.once('close', function() {
+    clearTimeout(watchdog);
+  });
   p.disconnect();
-  process.exit(0);
+  process.once('SIGINT', function() {
+    console.log('Hard-kill');
+    process.exit(0);
+  });
 });
