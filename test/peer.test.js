@@ -15,99 +15,103 @@ describe('P2P Peer', function() {
       localPeer.connect();
     });
   });
-  it('should properly parse data stream into message events', function(done) {
+  describe('Messaging', function() {
     var magic = 0x01020304;
+    var server = false;
     var localPeer = false;
     var serverPeer = false;
-    var server = net.createServer(function(socket) {
-      serverPeer = new Peer(socket.remoteAddress, socket.remotePort, magic);
-      serverPeer.connect(socket);
-      serverPeer.send('hello', new Buffer('world', 'utf8'));
+    
+    beforeEach(function(done) {
+      serverPeer = false;
+      server = net.createServer(function(socket) {
+        serverPeer = new Peer(socket.remoteAddress, socket.remotePort, magic);
+        serverPeer.connect(socket);
+      });
+      localPeer = false;
+      server.listen(function() {
+        localPeer = new Peer(server.address().address, server.address().port, magic);
+        done();
+      });
     });
-    server.listen(function() {
-      localPeer = new Peer(server.address().address, server.address().port, magic);
+    
+    afterEach(function() {
+      if (serverPeer !== false) serverPeer.destroy();
+      server.close();
+      if (localPeer !== false) localPeer.destroy();
+    });
+  
+    it('should properly parse data stream into message events', function(done) {
+      var timer = false;
       localPeer.on('message', function(d) {
         assert.equal(d.command, 'hello');
         assert. equal(d.data.toString('utf8'), 'world');
-        serverPeer.destroy();
-        server.close();
-        localPeer.destroy();
+        clearInterval(timer);
         done();
       });
       localPeer.connect();
-    });
-  });
-  it('should properly parse data stream into command message events', function(done) {
-    var magic = 0x01020304;
-    var localPeer = false;
-    var serverPeer = false;
-    var server = net.createServer(function(socket) {
-      serverPeer = new Peer(socket.remoteAddress, socket.remotePort, magic);
-      serverPeer.connect(socket);
-      serverPeer.send('hello', new Buffer('world', 'utf8'));
-    });
-    server.listen(function() {
-      localPeer = new Peer(server.address().address, server.address().port, magic);
-      localPeer.on('helloMessage', function(d) {
-        assert.equal(d.data.toString('utf8'), 'world');
-        serverPeer.destroy();
-        server.close();
-        localPeer.destroy();
-        done();
-      });
-      localPeer.connect();
-    });
-  });
-  it('should error out if internal buffer is overflown', function(done) {
-    var magic = 0x01020304;
-    var localPeer = false;
-    var serverPeer = false;
-    var server = net.createServer(function(socket) {
-      serverPeer = new Peer(socket.remoteAddress, socket.remotePort, magic);
-      serverPeer.connect(socket);
-      serverPeer.send('hello', new Buffer('world', 'utf8'));
-    });
-    server.listen(function() {
-      localPeer = new Peer(server.address().address, server.address().port, magic);
-      localPeer.on('error', function(err) {
-        if (err == 'Peer exceeded max receiving buffer') {
-          serverPeer.destroy();
-          server.close();
-          localPeer.destroy();
-          done();
-        }
-      });
-      localPeer.MAX_RECEIVE_BUFFER = 10;
-      localPeer.connect();
-    });
-  });
-  it('should not error out if multiple messages fill up the buffer', function(done) {
-    var magic = 0x01020304;
-    var timer = false;
-    var localPeer = false;
-    var serverPeer = false;
-    var server = net.createServer(function(socket) {
-      serverPeer = new Peer(socket.remoteAddress, socket.remotePort, magic);
-      serverPeer.connect(socket);
       timer = setInterval(function() {
-        serverPeer.send('hello', new Buffer('world', 'utf8'));
-      }, 50);
-    });
-    server.listen(function() {
-      localPeer = new Peer(server.address().address, server.address().port, magic);
-      var count = 0;
-      localPeer.on('helloMessage', function(d) {
-        count++;
-        if (count >= 5) {
-          clearInterval(timer);
-          serverPeer.destroy();
-          server.close();
-          localPeer.destroy();
-          done();
+        if (serverPeer !== false) {
+          serverPeer.send('hello', new Buffer('world', 'utf8'));
         }
+      }, 100);
+    });
+    it('should properly parse data stream into command message events', function(done) {
+      var timer = false;
+      localPeer.once('helloMessage', function(d) {
+        assert.equal(d.data.toString('utf8'), 'world');
+        clearInterval(timer);
+        done();
       });
-      localPeer.MAX_RECEIVE_BUFFER = 30;
       localPeer.connect();
+      timer = setInterval(function() {
+        if (serverPeer !== false) {
+          serverPeer.send('hello', new Buffer('world', 'utf8'));
+        }
+      }, 100);
+    });
+    it('should error out if internal buffer is overflown', function(done) {
+        var timer = false;
+        localPeer.once('helloMessage', function(d) {
+          assert.equal(d.data.toString('utf8'), 'world');
+          clearInterval(timer);
+          done();
+        });
+        localPeer.MAX_RECEIVE_BUFFER = 10;
+        localPeer.on('error', function(err) {
+          if (err == 'Peer exceeded max receiving buffer') {
+            clearInterval(timer);
+            done();
+          }
+        });
+        localPeer.connect();
+        timer = setInterval(function() {
+          if (serverPeer !== false) {
+            serverPeer.send('hello', new Buffer('world', 'utf8'));
+          }
+        }, 100);
+    });
+    it('should not error out if multiple messages fill up the buffer', function(done) {
+        var timer = false;
+        localPeer.once('helloMessage', function(d) {
+          assert.equal(d.data.toString('utf8'), 'world');
+          clearInterval(timer);
+          done();
+        });
+        localPeer.MAX_RECEIVE_BUFFER = 30;
+        var count = 0;
+        localPeer.on('helloMessage', function(d) {
+          count++;
+          if (count >= 5) {
+            clearInterval(timer);
+            done();
+          }
+        });
+        localPeer.connect();
+        timer = setInterval(function() {
+          if (serverPeer !== false) {
+            serverPeer.send('hello', new Buffer('world', 'utf8'));
+          }
+        }, 100);
     });
   });
 });
