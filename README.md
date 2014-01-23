@@ -85,3 +85,13 @@ An alternate version of the `peerMessage` event; in these events, the command of
 	data: Raw payload as binary data
 }
 ```
+
+### `stateChange`
+When the peer changes state, this event is emitted, except for the "new" state, which is set upon creation.
+
+```
+{
+  new: String (new state name),
+  old: String (old state name)
+}
+```
