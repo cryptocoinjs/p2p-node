@@ -14,7 +14,7 @@ p.on('connect', function(d) {
   m.pad(26); // addr_me
   m.pad(26); // addr_you
   m.putInt64(0x1234); // nonce
-  m.putVarString('Node.js lite peer');
+  m.putVarString('/Cryptocoinjs:0.1/');
   m.putInt32(10); // start_height
   
   //console.log(m.raw().toString('hex'));
