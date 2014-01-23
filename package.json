@@ -1,6 +1,6 @@
 {
   "name": "p2p-node",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Create a peer-to-peer relationship",
   "keywords": [
     "p2p",
@@ -14,7 +14,7 @@
     "sha256": "0.1.x"
   },
   "devDependencies": {
-    "mocha": "1.*",
+    "mocha": "1.*"
   },
   "repository": {
     "url": "https://github.com/cryptocoinjs/p2p-node",
