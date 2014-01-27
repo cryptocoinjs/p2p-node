@@ -1,4 +1,4 @@
-var sha256 = require('sha256');
+var sha256 = require('crypto-hashing').sha256;
 
 var Message = exports.Message = function Message(magic) {
   this.buffer = new Buffer(10000);

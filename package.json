@@ -11,7 +11,7 @@
   "main": "./lib/Peer.js",
 
   "dependencies": {
-    "sha256": "0.1.x"
+    "crypto-hashing": "0.1.x"
   },
   "devDependencies": {
     "mocha": "1.*"
