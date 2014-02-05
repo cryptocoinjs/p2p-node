@@ -9,6 +9,9 @@
     "cryptography"
   ],
   "main": "./lib/Peer.js",
+  "scripts": {
+     "test": "mocha"
+   },
 
   "dependencies": {
     "crypto-hashing": "0.1.x"
