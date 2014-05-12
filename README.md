@@ -1,5 +1,5 @@
 # P2P Node
-Low-level library to handle peer-to-peer traffic on Cryptcurrency networks. A raw `socket` object in Node emits `data` events whenever the stream is updated. This library sits on top of a raw socket connection, and instead of emitting `data` events every time the stream updates, it waits and emits `message` events whenever a complete message has arrived.
+Low-level library to handle peer-to-peer traffic on cryptocurrency networks. A raw `socket` object in Node emits `data` events whenever the stream is updated. This library sits on top of a raw socket connection, and instead of emitting `data` events every time the stream updates, it waits and emits `message` events whenever a complete message has arrived.
 
 It uses the [Bitcoin protocol structure](https://en.bitcoin.it/wiki/Protocol_specification#Message_structure) to parse incoming messages; any stream that's encoded as follows can be parsed:
 
@@ -14,7 +14,7 @@ The default Magic Bytes and default Port to connect to are set to the Bitcoin pr
 ## Usage
 
 ```js
-var Peer = require('Peer').Peer;
+var Peer = require('p2p-node').Peer;
 
 var p = new Peer('remote.node.com');
 p.on('connect', function(d) {
