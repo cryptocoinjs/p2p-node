@@ -1,5 +1,5 @@
 # P2P Node
-Low-level library to handle peer-to-peer traffic on Cryptcurrency networks. A raw `socket` object in Node emits `data` events whenever the stream is updated. This library sits on top of a raw socket connection, and instead of emitting `data` events every time the stream updates, it waits and emits `message` events whenever a complete message has arrived.
+Low-level library to handle peer-to-peer traffic on Cryptcurrency networks. A raw `socket` object in Node emits `data` events whenever the stream is updated. This library sits on top of a raw tls connection, and instead of emitting `data` events every time the stream updates, it waits and emits `message` events whenever a complete message has arrived. The tls connection is then wrapped as a simple socket connection.
 
 It uses the [Bitcoin protocol structure](https://en.bitcoin.it/wiki/Protocol_specification#Message_structure) to parse incoming messages; any stream that's encoded as follows can be parsed:
 
@@ -30,7 +30,7 @@ p.on('message', function(d) {
 ## Events
 
 ### `connect`
-When the socket connects
+When the socket connects/the connection is established
 
 Data object passed to listeners:
 
@@ -41,14 +41,14 @@ Data object passed to listeners:
 ```
 
 ### `error`
-If the socket errors out
+If the socket/connection errors out
 
 Data object passed to listeners:
 
 ```
 {
   peer: Peer,
-  error: Error object from Socket
+  error: Error object from Stream
 }
 ```
 
