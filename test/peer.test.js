@@ -4,7 +4,7 @@ var settings = require('../lib/settings')
 var tls = require('tls');
 var net = require('net');
 
-var suboptions = settings.TLS_connection_options;
+var suboptions = settings.TLS_server_options;
 
 describe('P2P Peer', function() {
   it('should properly connect to indicated host', function(done) {
@@ -20,7 +20,41 @@ describe('P2P Peer', function() {
       localPeer.connect();
     });
   });
+  it('should accept a socket as Peer', function(done){
+    var localPeer = false;
+    var server = tls.createServer(suboptions, function(clTxtStream) {
+      server.close();
+      clTxtStream.destroy()
+      localPeer.destroy()
+      done();
+    });
+    server.listen(function(){
+      var sock = net.connect({port:server.address().port})
+      localPeer = new Peer(sock)
+      localPeer.connect()
+    });
+  });
+  it('should accept a socket as a connection', function(done){
+    var localPeer = false;
+    var server = tls.createServer(suboptions, function(clTxtStream) {
+      server.close();
+      clTxtStream.destroy()
+      localPeer.destroy()
+      done();
+    });
+    server.listen(function() {
+      //INCORRECT PORT
+      localPeer = new Peer(server.address().address, server.address().port+5);
+      var sock = net.connect({port:server.address().port});
+      //CONNECT TO SOCKET WITH CORRECT PORT!
+      localPeer.connect(sock);
+      localPeer.on('connection', function(){
+        done()
+      })
+    });
+  })
   describe('Messaging', function() {
+    //Magic set for test only:
     var magic = 0x01020304;
     var server = false;
     var localPeer = false;
