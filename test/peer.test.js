@@ -1,6 +1,6 @@
 var Peer = require('../lib/Peer').Peer;
 var assert = require("assert");
-var settings = require('../lib/settings')
+var settings = require('./test-settings')
 var tls = require('tls');
 var net = require('net');
 
