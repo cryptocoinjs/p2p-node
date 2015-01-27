@@ -1,15 +1,14 @@
 var Peer = require('../lib/Peer').Peer;
 var assert = require("assert");
-var settings = require('../test/test-settings')
-var tls = require('tls');
-var net = require('net');
+var settings = require('../test/test-settings');
+var onlinePackage = require(settings.useTLS? 'tls' : 'net');
 
 var suboptions = settings.TLS_server_options;
 
 describe('P2P Peer', function() {
   it('should properly connect to and disconnect from indicated host', function(done) {
     var localPeer = false;
-    var server = tls.createServer(suboptions, function(clTxtStream) {
+    var server = onlinePackage.createServer(suboptions, function(clTxtStream) {
       server.close();
       localPeer.disconnect();
       done();
@@ -27,7 +26,7 @@ describe('P2P Peer', function() {
     
     beforeEach(function(done) {
       serverPeer = false;
-      server = tls.createServer(suboptions, function(clTxtStream) {
+      server = onlinePackage.createServer(suboptions, function(clTxtStream) {
         serverPeer = new Peer(clTxtStream.remoteAddress, clTxtStream.remotePort, magic);
         serverPeer.connect(clTxtStream);
       });
