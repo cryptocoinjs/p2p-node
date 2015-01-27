@@ -1,28 +1,31 @@
 {
-  "name": "p2p-node",
-  "version": "0.1.1",
-  "description": "Create a peer-to-peer relationship",
+  "name": "TLS-p2p-node",
+  "version": "0.1.2",
+  "description": "Create an encrypted peer-to-peer relationship",
   "keywords": [
     "p2p",
     "network",
     "peers",
-    "cryptography"
+    "cryptography",
+    "TLS"
   ],
   "main": "./lib/Peer.js",
   "scripts": {
      "test": "mocha"
    },
 
-  "dependencies": {
-    "crypto-hashing": "0.1.x"
-  },
   "devDependencies": {
     "mocha": "1.*"
   },
   "repository": {
-    "url": "https://github.com/cryptocoinjs/p2p-node",
+    "url": "https://github.com/GammaSQ/TLS-p2p-node",
     "type": "git"
   },
 
-  "author": "Brooks Boyd <boydb@midnightdesign.ws>"
+  "contributors": [{
+    "name":"Brooks Boyd",
+    "email":"boydb@midnightdesign.ws"
+  }, {
+    "name":"Gamma Squared"
+    }]
 }
