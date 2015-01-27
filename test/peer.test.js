@@ -1,18 +1,17 @@
 var Peer = require('../lib/Peer').Peer;
 var assert = require("assert");
-var settings = require('../lib/settings')
+var settings = require('../test/test-settings')
 var tls = require('tls');
 var net = require('net');
 
-var suboptions = settings.TLS_connection_options;
+var suboptions = settings.TLS_server_options;
 
 describe('P2P Peer', function() {
-  it('should properly connect to indicated host', function(done) {
+  it('should properly connect to and disconnect from indicated host', function(done) {
     var localPeer = false;
     var server = tls.createServer(suboptions, function(clTxtStream) {
       server.close();
-      clTxtStream.destroy()
-      localPeer.destroy()
+      localPeer.disconnect();
       done();
     });
     server.listen(function() {

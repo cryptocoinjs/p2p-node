@@ -1,9 +1,10 @@
 var fs = require('fs')
 
 module.exports={
-  TLS_connection_options: {
+  TLS_server_options: {
     key: fs.readFileSync('key.pem'),
     cert: fs.readFileSync('cert.pem'),
-    rejectUnauthorized: false
+    rejectUnauthorized:false,
+    requestCert:true
   }
 }
