@@ -6,7 +6,7 @@
         "node_modules"
     ],
     "watch": [
-        "example",
+        "examples",
         "lib"
     ],
     "exec": "npm start",

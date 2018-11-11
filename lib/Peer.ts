@@ -1,14 +1,45 @@
-import net = require('net');
-import events = require('events');
-import util = require('util');
-import hashing = require('crypto-hashing');
+import * as net from 'net';
+import { EventEmitter } from 'events';
+import dSha256 from './dsha256';
 
-const { cryptoHash } = hashing;
+enum States {
+  Initial,
+  Connecting,
+  Connected,
+  Disconnecting,
+  Closed,
+}
 
-class PeerTS {
+interface IHostOptions {
+  host: string;
+  port: number;
+}
+
+interface IFullHostOptions extends IHostOptions {
+  version: number;
+}
+
+export default class Peer extends EventEmitter {
+
+  public static MAX_RECEIVE_BUFFER = 1024 * 1024 * 10;
+
   private host: IFullHostOptions;
-  constructor(peerOptions: IHostOptions, magic: string) {
+  private state: States = States.Initial;
+  private socket: net.Socket;
+  private inbound: Buffer;
+  private inboundCursor: number;
+  private lastSeen: Date;
+  public magicBytes: number;
+
+  constructor(peerOptions: IHostOptions, magic = 0xD9B4BEF9) {
+    super();
     this.host = this.generateOptions(peerOptions);
+    this.magicBytes = magic;
+    this.handleConnect = this.handleConnect.bind(this);
+    this.handleError = this.handleError.bind(this);
+    this.handleData = this.handleData.bind(this);
+    this.handleEnd = this.handleEnd.bind(this);
+    this.handleClose = this.handleClose.bind(this);
   }
 
   private generateOptions(options: IHostOptions): IFullHostOptions {
@@ -17,213 +48,172 @@ class PeerTS {
       version: net.isIP(options.host),
     };
   }
-}
 
-
-
-var Peer = exports.Peer = function Peer(host, port, magic) {
-  events.EventEmitter.call(this);
-  this.lastSeen = false;
-  if (!(host instanceof Host)) {
-    host = new Host(host, port);
+  private changeState(newState: States): void {
+    const oldState = this.state;
+    this.state = newState;
+    this.emit('stateChange', { newState, oldState });
   }
-  Object.defineProperty(this, 'host', {
-    enumerable: true,
-    configurable: false,
-    writable:false,
-    value: host
-  });
-  if (typeof magic !== 'undefined') this.magicBytes = magic;
-  
-  var myState = 'new';
-  Object.defineProperty(this, 'state', {
-    enumerable: true,
-    get: function() {
-      return myState;
-    },
-    set: function(newValue) {
-      var oldState = myState;
-      this.emit('stateChange', {new: newValue, old: oldState});
-      myState = newValue;
+
+  public connect() {
+    this.changeState(States.Connecting);
+    this.inbound = new Buffer(Peer.MAX_RECEIVE_BUFFER);
+    this.inboundCursor = 0;
+
+    this.socket = net.createConnection(this.host.port, this.host.host, this.handleConnect);
+    this.socket.on('error', this.handleError.bind(this));
+    this.socket.on('data', this.handleData.bind(this));
+    this.socket.on('end', this.handleEnd.bind(this));
+    this.socket.on('close', this.handleClose.bind(this));
+
+    return this.socket;
+  }
+
+  public disconnect() {
+    this.changeState(States.Disconnecting);
+    this.socket.end(); // Inform the other end we're going away
+  }
+
+  public destroy() {
+    this.socket.destroy();
+  }
+
+  getUUID() {
+    const { host, port } = this.host;
+    return `${host}~${port}`;
+  }
+
+  protected handleConnect() {
+    this.changeState(States.Connected);
+    this.emit('connect', {
+      peer: this,
+    });
+  }
+
+  protected handleEnd() {
+    this.emit('end', {
+      peer: this,
+    });
+  }
+
+  protected handleError(error: Object) {
+    this.emit('error', {
+      peer: this,
+      error
+    });
+  }
+
+  protected handleClose(closeError: Object): Peer {
+    this.changeState(States.Closed);
+    this.emit('close', {
+      peer: this,
+      closeError
+    });
+    return this;
+  }
+
+  private messageChecksum(message: Buffer): Buffer {
+    return new Buffer(dSha256(message)).slice(0, 4);
+  }
+
+  public send(command: string, data: Buffer, callback?: Function) {
+    const out = new Buffer(data.length + 24);
+    out.writeUInt32LE(this.magicBytes, 0); // magic
+    for (let i = 0; i < 12; i++) {
+      const num = (i >= command.length) ? 0 : command.charCodeAt(i);
+      out.writeUInt8(num, 4 + i); // command
     }
-  });
-  
-  return this;
-};
-util.inherits(Peer, events.EventEmitter);
+    out.writeUInt32LE(data.length, 16); // length
 
-Peer.prototype.MAX_RECEIVE_BUFFER = 1024*1024*10;
-Peer.prototype.magicBytes = 0xD9B4BEF9;
+    const checksum = this.messageChecksum(data);
+    checksum.copy(out, 20); // checksum
+    data.copy(out, 24);
 
-Peer.prototype.connect = function connect(socket) {
-  this.state = 'connecting';
-  this.inbound = new Buffer(this.MAX_RECEIVE_BUFFER);
-  this.inboundCursor = 0;
-
-  if (typeof socket === 'undefined' || !(socket instanceof net.Socket)) {
-    socket = net.createConnection(this.host.port, this.host.host, this.handleConnect.bind(this));
-  } else {
-    this.state = 'connected'; // Binding to an already-connected socket; will not fire a 'connect' event, but will still fire a 'stateChange' event
+    this.socket.write(out, null, callback);
   }
-  Object.defineProperty(this, 'socket', {
-    enumerable: false,
-    configurable: false,
-    writable:false,
-    value: socket
-  });
-  this.socket.on('error', this.handleError.bind(this));
-  this.socket.on('data', this.handleData.bind(this));
-  this.socket.on('end', this.handleEnd.bind(this));
-  this.socket.on('close', this.handleClose.bind(this));
-  
-  return this.socket;
-};
 
-Peer.prototype.disconnect = function disconnect() {
-  this.state = 'disconnecting';
-  this.socket.end(); // Inform the other end we're going away
-};
+  protected handleData(data: Buffer) {
+    this.lastSeen = new Date();
 
-Peer.prototype.destroy = function destroy() {
-  this.socket.destroy();
-};
+    // Add data to incoming buffer
+    if (data.length + this.inboundCursor > this.inbound.length) {
+      this.emit('error', 'Peer exceeded max receiving buffer');
+      this.inboundCursor = this.inbound.length + 1;
+      return;
+    }
+    data.copy(this.inbound, this.inboundCursor);
+    this.inboundCursor += data.length;
 
-Peer.prototype.getUUID = function getUUID() {
-  return this.host.host+'~'+this.host.port;
-}
+    if (this.inboundCursor < 20) return; // Can't process something less than 20 bytes in size
 
-Peer.prototype.handleConnect = function handleConnect() {
-  this.state = 'connected';
-  this.emit('connect', {
-    peer: this,
-  });
-};
-
-Peer.prototype.handleEnd = function handleEnd() {
-  this.emit('end', {
-    peer: this,
-  });
-};
-
-Peer.prototype.handleError = function handleError(data) {
-  this.emit('error', {
-    peer: this,
-    error: data
-  });
-};
-
-Peer.prototype.handleClose = function handleClose(had_error) {
-  this.state = 'closed';
-  this.emit('close', {
-    peer: this,
-    had_error: had_error
-  });
-};
-
-Peer.prototype.messageChecksum = function(msg) {
-  return new Buffer(sha256.x2(msg)).slice(0,4);
-};
-
-Peer.prototype.send = function send(command, data, callback) {
-  if (typeof data == 'undefined') {
-    data = new Buffer(0);
-  } else if (Array.isArray(data)) {
-    data = new Buffer(data);
-  }
-  var out = new Buffer(data.length + 24);
-  out.writeUInt32LE(this.magicBytes, 0); // magic
-  for (var i = 0; i < 12; i++) {
-    var num = (i >= command.length)? 0 : command.charCodeAt(i);
-    out.writeUInt8(num, 4+i); // command
-  }
-  out.writeUInt32LE(data.length, 16); // length
-  
-  var checksum = this.messageChecksum(data);
-  checksum.copy(out, 20); // checksum
-  data.copy(out, 24);
-  
-  this.socket.write(out, null, callback);
-};
-
-Peer.prototype.handleData = function handleData(data) {
-  this.lastSeen = new Date();
-  
-  // Add data to incoming buffer
-  if (data.length + this.inboundCursor > this.inbound.length) {
-    this.emit('error', 'Peer exceeded max receiving buffer');
-    this.inboundCursor = this.inbound.length+1;
-    return;
-  }
-  data.copy(this.inbound, this.inboundCursor);
-  this.inboundCursor += data.length;
-  
-  if (this.inboundCursor < 20) return; // Can't process something less than 20 bytes in size
-  
-  // Split on magic bytes into message(s)
-  var i = 0, endPoint = 0;
-  //console.log('searching for messages in '+this.inboundCursor+' bytes');
-  while (i < this.inboundCursor) {
-    if (this.inbound.readUInt32LE(i) == this.magicBytes) {
-      //console.log('found message start at '+i);
-      var msgStart = i;
-      if (this.inboundCursor > msgStart + 16) {
-        var msgLen = this.inbound.readUInt32LE(msgStart + 16);
-        //console.log('message is '+msgLen+' bytes long');
-        if (this.inboundCursor >= msgStart + msgLen + 24) {
-          // Complete message; parse it
-          this.handleMessage(this.inbound.slice(msgStart, msgStart + msgLen + 24));
-          endPoint = msgStart + msgLen + 24;
+    // Split on magic bytes into message(s)
+    let i = 0, endPoint = 0;
+    // console.log('searching for messages in '+this.inboundCursor+' bytes');
+    while (i < this.inboundCursor) {
+      if (this.inbound.readUInt32LE(i) == this.magicBytes) {
+        // console.log('found message start at '+i);
+        const msgStart = i;
+        if (this.inboundCursor > msgStart + 16) {
+          const msgLen = this.inbound.readUInt32LE(msgStart + 16);
+          // console.log('message is '+msgLen+' bytes long');
+          if (this.inboundCursor >= msgStart + msgLen + 24) {
+            // Complete message; parse it
+            this.handleMessage(this.inbound.slice(msgStart, msgStart + msgLen + 24));
+            endPoint = msgStart + msgLen + 24;
+          }
+          i += msgLen + 24; // Skip to next message
+        } else {
+          i = this.inboundCursor; // Skip to end
         }
-        i += msgLen+24; // Skip to next message
       } else {
-        i = this.inboundCursor; // Skip to end
+        i++;
+      }
+    }
+
+    // Done processing all found messages
+    if (endPoint > 0) {
+      // console.log('messaged parsed up to '+endPoint+', but cursor goes out to '+this.inboundCursor);
+      this.inbound.copy(this.inbound, 0, endPoint, this.inboundCursor); // Copy from later in the buffer to earlier in the buffer
+      this.inboundCursor -= endPoint;
+      // console.log('removed '+endPoint+' bytes processed data, putting cursor to '+this.inboundCursor);
+    }
+  }
+
+  private handleMessage(msg: Buffer) {
+    const msgLen = msg.readUInt32LE(16);
+
+    // Get command
+    const commands = [];
+    for (let j = 0; j < 12; j++) {
+      const s = msg[4 + j];
+      if (s > 0) {
+        commands.push(String.fromCharCode(s));
+      }
+    }
+    const cmd = commands.join('');
+    let payload: Buffer;
+
+    const checksum = msg.readUInt32BE(20);
+    if (msgLen > 0) {
+      payload = new Buffer(msgLen);
+      msg.copy(payload, 0, 24);
+      const checksumCalc = this.messageChecksum(payload);
+      if (checksum != checksumCalc.readUInt32BE(0)) {
+        console.log('Supplied checksum of ' + checksum.toString(16) + ' does not match calculated checksum of ' + checksumCalc.toString('hex'));
       }
     } else {
-      i++;
+      payload = new Buffer(0);
     }
-  }
-  
-  // Done processing all found messages
-  if (endPoint > 0) {
-    //console.log('messaged parsed up to '+endPoint+', but cursor goes out to '+this.inboundCursor);
-    this.inbound.copy(this.inbound, 0, endPoint, this.inboundCursor); // Copy from later in the buffer to earlier in the buffer
-    this.inboundCursor -= endPoint;
-    //console.log('removed '+endPoint+' bytes processed data, putting cursor to '+this.inboundCursor);
-  }
-};
 
-Peer.prototype.handleMessage = function handleMessage(msg) {
-  var msgLen = msg.readUInt32LE(16);
+    this.emit('message', {
+      peer: this,
+      command: cmd,
+      data: payload
+    });
+    this.emit(cmd + 'Message', {
+      peer: this,
+      data: payload
+    });
+  }
 
-  // Get command
-  var cmd = [];
-  for (var j=0; j<12; j++) {
-    var s = msg[4+j];
-    if (s > 0) {
-      cmd.push(String.fromCharCode(s));
-    }
-  }
-  cmd = cmd.join('');
-  
-  var checksum = msg.readUInt32BE(20);
-  if (msgLen > 0) {
-    var payload = new Buffer(msgLen);
-    msg.copy(payload, 0, 24);
-    var checksumCalc = this.messageChecksum(payload);
-    if (checksum != checksumCalc.readUInt32BE(0)) {
-      console.log('Supplied checksum of '+checksum.toString('hex')+' does not match calculated checksum of '+checksumCalc.toString('hex'));
-    }
-  } else {
-    var payload = new Buffer(0);
-  }
-  
-  this.emit('message', {
-    peer: this,
-    command: cmd,
-    data: payload
-  });
-  this.emit(cmd+'Message', {
-    peer: this,
-    data: payload
-  });
-};
+}

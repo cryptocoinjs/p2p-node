@@ -13,7 +13,7 @@
     "test": "mocha",
     "build": "tsc",
     "build-watch": "tsc --watch",
-    "start": "ts-node --inspect=5858 example/bitcoin.ts",
+    "start": "ts-node --inspect=5858 examples/bitcoin.ts",
     "dev": "./node_modules/nodemon/bin/nodemon.js"
   },
   "dependencies": {
