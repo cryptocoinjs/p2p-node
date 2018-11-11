@@ -1,6 +1,6 @@
 import * as net from 'net';
 import { EventEmitter } from 'events';
-import dSha256 from './dsha256';
+import { dSha256 } from './dsha256';
 
 enum States {
   Initial,
@@ -19,7 +19,7 @@ interface IFullHostOptions extends IHostOptions {
   version: number;
 }
 
-export default class Peer extends EventEmitter {
+export class Peer extends EventEmitter {
 
   public static MAX_RECEIVE_BUFFER = 1024 * 1024 * 10;
 
@@ -29,7 +29,7 @@ export default class Peer extends EventEmitter {
   private inbound: Buffer;
   private inboundCursor: number;
   private lastSeen: Date;
-  public magicBytes: number;
+  private magicBytes: number;
 
   constructor(peerOptions: IHostOptions, magic = 0xD9B4BEF9) {
     super();

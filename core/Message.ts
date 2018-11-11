@@ -1,15 +1,9 @@
-import { createHash } from 'crypto';
-import dSha256 from './dsha256';
+import { dSha256 } from './dsha256';
 
-export default class Message {
+export class Message {
 
   private buffer = new Buffer(10000);
   private cursor = 0;
-  private magicBytes: number;
-
-  constructor(magic = 0xD9B4BEF9) {
-    this.magicBytes = magic;
-  }
   public checksum() {
     return new Buffer(dSha256(this.buffer.slice(0, this.cursor)));
   }
