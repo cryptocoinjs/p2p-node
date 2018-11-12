@@ -6,8 +6,8 @@
         "node_modules"
     ],
     "watch": [
-        "examples",
-        "lib"
+        "example",
+        "src"
     ],
     "exec": "npm start",
     "ext": "ts"

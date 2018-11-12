@@ -2,7 +2,6 @@ import { BitcoinPeerManager, Peer, Message } from '../src';
 import * as dns from 'dns'
 
 
-const shutdown = false;
 const peerManager = new BitcoinPeerManager(Peer, Message);
 
 function findPeer(addrs: string[]) {
@@ -11,10 +10,9 @@ function findPeer(addrs: string[]) {
 
 process.once('SIGINT', function () {
   console.log('Got SIGINT; closing...');
-  peerManager.disconnect();
-  process.once('SIGINT', function () {
-    console.log('Hard-kill');
-    process.exit(0);
+  peerManager.disconnect(() => {
+    console.log('shutdown')
+    process.exit(0)
   });
 });
 

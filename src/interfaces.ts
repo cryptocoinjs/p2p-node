@@ -30,7 +30,7 @@ export interface DIPeer {
     new(peerOptions: THostOptions): IPeer
 }
 
-export enum States {
+export enum PeerStates {
     Initial,
     Connecting,
     Connected,

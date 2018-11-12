@@ -6,7 +6,8 @@
         "noImplicitAny": true,
         "sourceMap": true,
         "outDir": "./",
-        "baseUrl": "./src"
+        "baseUrl": "./src",
+        "experimentalDecorators": true
     },
     "exclude": [
         "*.spec.ts"
