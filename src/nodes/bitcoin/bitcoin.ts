@@ -1,8 +1,8 @@
-import { Peer, Message } from '../../core';
+import { Peer, Message } from 'core';
 import { EventEmitter } from 'events';
 
-import dns = require('dns');
 
+// TODO: move to IoC and DI
 class BitcoinPeerManager extends EventEmitter {
   constructor() {
     super();
