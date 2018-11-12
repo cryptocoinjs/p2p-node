@@ -3,22 +3,22 @@ import { IMessage } from 'interfaces';
 
 export class Message implements IMessage {
 
-  private buffer = new Buffer(10000);
+  private buffer = Buffer.alloc(10000);
   private cursor = 0;
-  public checksum() {
-    return new Buffer(dSha256(this.buffer.slice(0, this.cursor)));
+  public checksum() { // deprecated
+    return Buffer.from(dSha256(this.buffer.slice(0, this.cursor)));
   }
   public raw() {
-    const data = new Buffer(this.cursor);
+    const data = Buffer.alloc(this.cursor);
     this.buffer.copy(data, 0, 0, this.cursor);
     return data;
   }
   public pad(size: number) {
-    const data = new Buffer(size);
+    const data = Buffer.alloc(size);
     data.fill(0);
     return this.put(data);
   }
-  public put(data: number | Buffer) {
+  private put(data: number | Buffer) {
     if (typeof data == 'number' && data <= 255) {
       this.buffer[this.cursor] = data;
       this.cursor += 1;
@@ -30,23 +30,23 @@ export class Message implements IMessage {
     return this;
   }
   public putInt16(num: number) {
-    const data = new Buffer(2);
+    const data = Buffer.alloc(2);
     data.writeUInt16LE(num, 0);
     return this.put(data);
   }
   public putInt32(num: number) {
-    const data = new Buffer(4);
+    const data = Buffer.alloc(4);
     data.writeUInt32LE(num, 0);
     return this.put(data);
   }
   public putInt64(num: number) {
-    const data = new Buffer(8);
+    const data = Buffer.alloc(8);
     data.fill(0);
     data.writeUInt32LE(num, 0);
     return this.put(data);
   }
-  public putString(str: string) {
-    const data = new Buffer(str.length);
+  private putString(str: string) {
+    const data = Buffer.alloc(str.length);
     for (let i = 0; i < str.length; i++) {
       data[i] = str.charCodeAt(i);
     }
