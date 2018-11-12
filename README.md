@@ -1,4 +1,7 @@
 # P2P Node
+
+**Warning** DEPRECATED README
+
 Low-level library to handle peer-to-peer traffic on cryptocurrency networks. A raw `socket` object in Node emits `data` events whenever the stream is updated. This library sits on top of a raw socket connection, and instead of emitting `data` events every time the stream updates, it waits and emits `message` events whenever a complete message has arrived.
 
 It uses the [Bitcoin protocol structure](https://en.bitcoin.it/wiki/Protocol_specification#Message_structure) to parse incoming messages; any stream that's encoded as follows can be parsed:
