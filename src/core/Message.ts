@@ -1,6 +1,7 @@
 import { dSha256 } from './dsha256';
+import { IMessage } from 'interfaces';
 
-export class Message {
+export class Message implements IMessage {
 
   private buffer = new Buffer(10000);
   private cursor = 0;

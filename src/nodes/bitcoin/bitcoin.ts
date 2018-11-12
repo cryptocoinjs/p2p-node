@@ -1,90 +1,102 @@
-import { Peer, Message } from 'core';
 import { EventEmitter } from 'events';
+import { DIPeer, DIMessage, THostOptions, IPeer, IMessage } from 'interfaces';
 
+export class BitcoinPeerManager extends EventEmitter {
 
-// TODO: move to IoC and DI
-class BitcoinPeerManager extends EventEmitter {
-  constructor() {
+  private peerConstructor: DIPeer
+  private messageConstructor: DIMessage
+  private verackTimeout: NodeJS.Timeout
+  private connectTimeout: NodeJS.Timeout
+  private currentPeer: IPeer
+  private iterate: IterableIterator<void>
+  private message: IMessage
+
+  constructor(peerClass: DIPeer, messageClass: DIMessage) {
     super();
+    this.peerConstructor = peerClass;
+    this.messageConstructor = messageClass;
   }
 
-  private handleConnect(peer: Peer, connectTimeout: NodeJS.Timeout, ) {
+  private handleConnect() {
     console.log('connect');
-    clearTimeout(connectTimeout);
+    clearTimeout(this.connectTimeout);
 
-    // Send VERSION message
-    const m = new Message();
-    m.putInt32(70015); // version
-    m.putInt64(1); // services
-    m.putInt64(Math.round(new Date().getTime() / 1000)); // timestamp
-    m.pad(26); // addr_me
-    m.pad(26); // addr_you
-    m.putInt64(0x1234); // nonce
-    m.putVarString('/btc-js-node:0.0.1/');
-    m.putInt32(10); // start_height
+    this.message.putInt32(70015); // version
+    this.message.putInt64(1); // services
+    this.message.putInt64(Math.round(new Date().getTime() / 1000)); // timestamp
+    this.message.pad(26); // addr_me
+    this.message.pad(26); // addr_you
+    this.message.putInt64(0x1234); // nonce
+    this.message.putVarString('/btc-js-node:0.0.1/');
+    this.message.putInt32(10); // start_height
 
     console.log('Sending VERSION message');
-    const verackTimeout = setTimeout(() => {
+    this.verackTimeout = setTimeout(() => {
       console.log('No VERACK received; disconnect');
-      return peer.destroy();
+      return this.currentPeer.destroy();
     }, 10000);
 
-    peer.once('verackMessage', () => {
+    this.currentPeer.once('verackMessage', () => {
       console.log('VERACK received; this peer is active now');
-      return clearTimeout(verackTimeout);
+      return clearTimeout(this.verackTimeout);
     });
 
-    peer.send('version', m.raw());
+    this.currentPeer.send('version', this.message.raw());
   }
 
-  public connect(currentPeer: Peer) {
+  private *candidateGenerator(peerOptions: THostOptions[]) {
+    for (let i = 0; i < peerOptions.length; i++) {
+      this.currentPeer = new this.peerConstructor(peerOptions[i])
+      yield this.connectToPeer() 
+    }
+  }
 
-    const connectTimeout = setTimeout(function () { // Give them a few seconds to respond, otherwise close the connection automatically
+  public connect(peerOptions: THostOptions[]) {
+    this.iterate = this.candidateGenerator(peerOptions);
+    this.message = new this.messageConstructor()
+  }
+
+  public disconnect() {
+    const watchdog = setTimeout(function () {
+      console.log('Peer didn\'t close gracefully; force-closing');
+      this.currentPeer.destroy();
+      this.iterate = null;
+    }, 10000);
+    watchdog.unref();
+    this.currentPeer.once('close', function () {
+      clearTimeout(watchdog);
+      this.iterate = null;
+    });
+    this.currentPeer.disconnect();
+  }
+
+  private connectToPeer() {
+    this.connectTimeout = setTimeout(function () { // Give them a few seconds to respond, otherwise close the connection automatically
       console.log('Peer never connected; hanging up');
-      currentPeer.destroy();
-      currentPeer.removeAllListeners();
-      currentPeer = null;
+      this.currentPeer.destroy();
+      this.currentPeer.removeAllListeners();
     }, 5 * 1000);
 
-    currentPeer.on('connect', ({ peer }) => this.handleConnect(peer, connectTimeout));
-    currentPeer.on('end', () => console.log('end'));
-    currentPeer.on('error', ({ peer, error }) => {
+    this.currentPeer.on('connect', () => this.handleConnect());
+    this.currentPeer.on('end', () => console.log('end'));
+    this.currentPeer.on('error', ({ peer, error }) => {
       console.log('error ', error);
       peer.destroy();
     });
-    currentPeer.on('close', () => console.log('close'));
-    currentPeer.on('message', function (d) {
+    this.currentPeer.on('close', () => {
+      console.log('Connection closed, trying next...');
+      setImmediate(function () {
+        clearTimeout(this.connectTimeout);
+        clearTimeout(this.verackTimeout);
+        this.iterate.next();
+      });
+    });
+    this.currentPeer.on('message', function (d) {
       console.log('message', d.command, d.data.toString('hex'));
     });
 
-    console.log('Attempting connection to ' + currentPeer.getUUID());
+    console.log('Attempting connection to ' + this.currentPeer.getUUID());
 
-    currentPeer.connect();
-
-    process.once('SIGINT', function () {
-      console.log('Got SIGINT; closing...');
-      const watchdog = setTimeout(function () {
-        console.log('Peer didn\'t close gracefully; force-closing');
-        currentPeer.destroy();
-      }, 10000);
-      watchdog.unref();
-      currentPeer.once('close', function () {
-        clearTimeout(watchdog);
-      });
-      currentPeer.disconnect();
-      process.once('SIGINT', function () {
-        console.log('Hard-kill');
-        process.exit(0);
-      });
-    });
+    this.currentPeer.connect();
   }
 }
-
-// // Find a single IP address
-// dns.resolve4('seed.btc.petertodd.org', function(err, addrs) {
-//   if (err) {
-//     console.log(err);
-//     return;
-//   }
-//   findPeer(addrs);
-// });

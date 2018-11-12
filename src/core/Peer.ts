@@ -1,29 +1,13 @@
 import * as net from 'net';
 import { EventEmitter } from 'events';
 import { dSha256 } from './dsha256';
+import { IPeer, States, THostOptions, IHostOptions } from 'interfaces';
 
-enum States {
-  Initial,
-  Connecting,
-  Connected,
-  Disconnecting,
-  Closed,
-}
-
-interface IHostOptions {
-  host: string;
-  port: number;
-}
-
-interface IFullHostOptions extends IHostOptions {
-  version: number;
-}
-
-export class Peer extends EventEmitter {
+export class Peer extends EventEmitter implements IPeer {
 
   public static MAX_RECEIVE_BUFFER = 1024 * 1024 * 10;
 
-  private host: IFullHostOptions;
+  private host: IHostOptions;
   private state: States = States.Initial;
   private socket: net.Socket;
   private inbound: Buffer;
@@ -31,7 +15,7 @@ export class Peer extends EventEmitter {
   private lastSeen: Date;
   private magicBytes: number;
 
-  constructor(peerOptions: IHostOptions, magic = 0xD9B4BEF9) {
+  constructor(peerOptions: THostOptions, magic = 0xD9B4BEF9) {
     super();
     this.host = this.generateOptions(peerOptions);
     this.magicBytes = magic;
@@ -42,7 +26,7 @@ export class Peer extends EventEmitter {
     this.handleClose = this.handleClose.bind(this);
   }
 
-  private generateOptions(options: IHostOptions): IFullHostOptions {
+  private generateOptions(options: THostOptions): IHostOptions {
     return {
       ...options,
       version: net.isIP(options.host),
@@ -65,8 +49,6 @@ export class Peer extends EventEmitter {
     this.socket.on('data', this.handleData.bind(this));
     this.socket.on('end', this.handleEnd.bind(this));
     this.socket.on('close', this.handleClose.bind(this));
-
-    return this.socket;
   }
 
   public disconnect() {
@@ -78,7 +60,7 @@ export class Peer extends EventEmitter {
     this.socket.destroy();
   }
 
-  getUUID() {
+  public getUUID() {
     const { host, port } = this.host;
     return `${host}~${port}`;
   }
