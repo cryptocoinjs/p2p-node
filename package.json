@@ -8,22 +8,27 @@
     "peers",
     "cryptography"
   ],
-  "main": "./lib/Peer.js",
+  "main": "./src",
   "scripts": {
-    "test": "mocha",
+    "test": "mocha -r ts-node/register -r tsconfig-paths/register src/**/**.test.ts",
     "build": "tsc",
     "build-watch": "tsc --watch",
-    "start": "ts-node --inspect=5858 examples/bitcoin.ts",
+    "start": "ts-node -r tsconfig-paths/register --inspect=5858 example/bitcoin.ts",
     "dev": "./node_modules/nodemon/bin/nodemon.js"
   },
   "dependencies": {
-    "crypto-hashing": "^1.0.0"
+    "bind-decorator": "^1.0.11"
   },
   "devDependencies": {
+    "@types/chai": "^4.1.7",
+    "@types/mocha": "^5.2.5",
     "@types/node": "^10.12.5",
+    "chai": "^4.2.0",
     "mocha": "^5.2.0",
     "nodemon": "^1.18.6",
+    "ts-js-path-resolve": "^0.0.9",
     "ts-node": "^7.0.1",
+    "tsconfig-paths": "^3.7.0",
     "tslint": "^5.11.0",
     "typescript": "^3.1.6"
   },

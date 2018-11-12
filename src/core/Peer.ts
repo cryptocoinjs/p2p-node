@@ -1,37 +1,21 @@
 import * as net from 'net';
 import { EventEmitter } from 'events';
-import dSha256 from './dsha256';
+import { dSha256 } from './dsha256';
+import { IPeer, PeerStates, THostOptions, IHostOptions } from 'interfaces';
 
-enum States {
-  Initial,
-  Connecting,
-  Connected,
-  Disconnecting,
-  Closed,
-}
+export class Peer extends EventEmitter implements IPeer {
 
-interface IHostOptions {
-  host: string;
-  port: number;
-}
+  public MAX_RECEIVE_BUFFER = 1024 * 1024 * 10;
 
-interface IFullHostOptions extends IHostOptions {
-  version: number;
-}
-
-export default class Peer extends EventEmitter {
-
-  public static MAX_RECEIVE_BUFFER = 1024 * 1024 * 10;
-
-  private host: IFullHostOptions;
-  private state: States = States.Initial;
+  private host: IHostOptions;
+  private state: PeerStates = PeerStates.Initial;
   private socket: net.Socket;
   private inbound: Buffer;
   private inboundCursor: number;
   private lastSeen: Date;
-  public magicBytes: number;
+  private magicBytes: number;
 
-  constructor(peerOptions: IHostOptions, magic = 0xD9B4BEF9) {
+  constructor(peerOptions: THostOptions, magic = 0xD9B4BEF9) {
     super();
     this.host = this.generateOptions(peerOptions);
     this.magicBytes = magic;
@@ -42,35 +26,34 @@ export default class Peer extends EventEmitter {
     this.handleClose = this.handleClose.bind(this);
   }
 
-  private generateOptions(options: IHostOptions): IFullHostOptions {
+  private generateOptions(options: THostOptions): IHostOptions {
     return {
       ...options,
       version: net.isIP(options.host),
     };
   }
 
-  private changeState(newState: States): void {
+  private changeState(newState: PeerStates): void {
     const oldState = this.state;
     this.state = newState;
     this.emit('stateChange', { newState, oldState });
   }
 
-  public connect() {
-    this.changeState(States.Connecting);
-    this.inbound = new Buffer(Peer.MAX_RECEIVE_BUFFER);
+  public connect(socket?: net.Socket) {
+    this.changeState(PeerStates.Connecting);
+    this.inbound = Buffer.alloc(this.MAX_RECEIVE_BUFFER);
     this.inboundCursor = 0;
 
-    this.socket = net.createConnection(this.host.port, this.host.host, this.handleConnect);
+    this.socket = socket ? socket : net.createConnection(this.host.port, this.host.host, this.handleConnect);
+
     this.socket.on('error', this.handleError.bind(this));
     this.socket.on('data', this.handleData.bind(this));
     this.socket.on('end', this.handleEnd.bind(this));
     this.socket.on('close', this.handleClose.bind(this));
-
-    return this.socket;
   }
 
   public disconnect() {
-    this.changeState(States.Disconnecting);
+    this.changeState(PeerStates.Disconnecting);
     this.socket.end(); // Inform the other end we're going away
   }
 
@@ -78,13 +61,13 @@ export default class Peer extends EventEmitter {
     this.socket.destroy();
   }
 
-  getUUID() {
+  public getUUID() {
     const { host, port } = this.host;
     return `${host}~${port}`;
   }
 
   protected handleConnect() {
-    this.changeState(States.Connected);
+    this.changeState(PeerStates.Connected);
     this.emit('connect', {
       peer: this,
     });
@@ -104,7 +87,7 @@ export default class Peer extends EventEmitter {
   }
 
   protected handleClose(closeError: Object): Peer {
-    this.changeState(States.Closed);
+    this.changeState(PeerStates.Closed);
     this.emit('close', {
       peer: this,
       closeError
@@ -113,18 +96,17 @@ export default class Peer extends EventEmitter {
   }
 
   private messageChecksum(message: Buffer): Buffer {
-    return new Buffer(dSha256(message)).slice(0, 4);
+    return Buffer.from(dSha256(message)).slice(0, 4);
   }
 
   public send(command: string, data: Buffer, callback?: Function) {
-    const out = new Buffer(data.length + 24);
+    const out = Buffer.alloc(data.length + 24);
     out.writeUInt32LE(this.magicBytes, 0); // magic
     for (let i = 0; i < 12; i++) {
       const num = (i >= command.length) ? 0 : command.charCodeAt(i);
       out.writeUInt8(num, 4 + i); // command
     }
     out.writeUInt32LE(data.length, 16); // length
-
     const checksum = this.messageChecksum(data);
     checksum.copy(out, 20); // checksum
     data.copy(out, 24);
@@ -195,14 +177,14 @@ export default class Peer extends EventEmitter {
 
     const checksum = msg.readUInt32BE(20);
     if (msgLen > 0) {
-      payload = new Buffer(msgLen);
+      payload = Buffer.alloc(msgLen);
       msg.copy(payload, 0, 24);
       const checksumCalc = this.messageChecksum(payload);
       if (checksum != checksumCalc.readUInt32BE(0)) {
         console.log('Supplied checksum of ' + checksum.toString(16) + ' does not match calculated checksum of ' + checksumCalc.toString('hex'));
       }
     } else {
-      payload = new Buffer(0);
+      payload = Buffer.alloc(0);
     }
 
     this.emit('message', {

@@ -1,12 +1,13 @@
 {
     "compilerOptions": {
         "module": "commonjs",
-        "target": "es5",
+        "target": "es2017",
         "removeComments": true,
         "noImplicitAny": true,
         "sourceMap": true,
         "outDir": "./",
-        "baseUrl": "./lib"
+        "baseUrl": "./src",
+        "experimentalDecorators": true
     },
     "exclude": [
         "*.spec.ts"
