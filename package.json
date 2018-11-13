@@ -13,7 +13,7 @@
     "test": "mocha -r ts-node/register -r tsconfig-paths/register src/**/**.test.ts",
     "build": "tsc",
     "build-watch": "tsc --watch",
-    "start": "ts-node -r tsconfig-paths/register --inspect=5858 example/bitcoin.ts",
+    "start": "TS_NODE_FILES=true && node -r ts-node/register --inspect=5858 example/bitcoin.ts",
     "dev": "./node_modules/nodemon/bin/nodemon.js"
   },
   "dependencies": {

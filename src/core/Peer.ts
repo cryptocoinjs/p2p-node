@@ -1,9 +1,16 @@
 import * as net from 'net';
 import { EventEmitter } from 'events';
-import { dSha256 } from './dsha256';
-import { IPeer, PeerStates, THostOptions, IHostOptions } from 'interfaces';
+import { dSha256 } from '../utils';
 
-export class Peer extends EventEmitter implements IPeer {
+export const enum PeerStates {
+  Initial,
+  Connecting,
+  Connected,
+  Disconnecting,
+  Closed,
+}
+
+export class Peer extends EventEmitter {
 
   public MAX_RECEIVE_BUFFER = 1024 * 1024 * 10;
 

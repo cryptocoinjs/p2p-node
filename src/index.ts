@@ -1,2 +1,2 @@
-export * from 'nodes/bitcoin';
-export * from 'core';
+export * from './managers/bitcoin';
+export * from './core';

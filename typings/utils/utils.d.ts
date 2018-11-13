@@ -1,0 +1,1 @@
+declare type TdSha256 = (data: string | Buffer | NodeJS.TypedArray | DataView) => Buffer;
