@@ -12,19 +12,19 @@ describe('P2P:core Peer', () => {
             done();
         });
         server.listen(() => {
-            const { address, port } = server.address() as net.AddressInfo
+            const { address, port } = server.address() as net.AddressInfo;
             localPeer = new Peer({ host: address, port});
             localPeer.connect();
         });
     });
     describe('Messaging', () => {
-        let magic = 0x01020304;
+        const magic = 0x01020304;
         let server: net.Server;
         let localPeer: Peer;
         let serverPeer: Peer;
 
         after(() => {
-            process.exit(0)
+            process.exit(0);
         });
 
         beforeEach((done) => {
@@ -34,10 +34,10 @@ describe('P2P:core Peer', () => {
                 serverPeer = new Peer({ host: socket.remoteAddress, port: socket.remotePort }, magic);
                 serverPeer.connect(socket);
             }).listen(() => {
-                const { address, port } = server.address() as net.AddressInfo
+                const { address, port } = server.address() as net.AddressInfo;
                 localPeer = new Peer({ host: address, port }, magic);
-                localPeer.connect()
-                done()
+                localPeer.connect();
+                done();
             });
         });
 
@@ -50,8 +50,8 @@ describe('P2P:core Peer', () => {
         it('should properly parse data stream into message events', (done) => {
             let timer: NodeJS.Timeout;
             localPeer.on('message', function (d) {
-                expect(d.command).to.equal('hello')
-                expect(d.data.toString('utf8')).to.equal('world')
+                expect(d.command).to.equal('hello');
+                expect(d.data.toString('utf8')).to.equal('world');
                 clearInterval(timer);
                 done();
             });
@@ -65,7 +65,7 @@ describe('P2P:core Peer', () => {
         it('should properly parse data stream into command message events', (done) => {
             let timer: NodeJS.Timeout;
             localPeer.once('helloMessage', function (d) {
-                expect(d.data.toString('utf8')).to.equal('world')
+                expect(d.data.toString('utf8')).to.equal('world');
                 clearInterval(timer);
                 done();
             });
@@ -79,7 +79,7 @@ describe('P2P:core Peer', () => {
         it('should error out if internal buffer is overflown', (done) => {
             let timer: NodeJS.Timeout;
             localPeer.once('helloMessage', function (d) {
-                expect(d.data.toString('utf8')).to.equal('world')
+                expect(d.data.toString('utf8')).to.equal('world');
                 clearInterval(timer);
                 done();
             });
@@ -100,12 +100,12 @@ describe('P2P:core Peer', () => {
         it('should not error out if multiple messages fill up the buffer', (done) => {
             let timer: NodeJS.Timeout;
             localPeer.once('helloMessage', (d) => {
-                expect(d.data.toString('utf8')).to.equal('world')
+                expect(d.data.toString('utf8')).to.equal('world');
                 clearInterval(timer);
                 done();
             });
             localPeer.MAX_RECEIVE_BUFFER = 30;
-            var count = 0;
+            let count = 0;
             localPeer.on('helloMessage', () => {
                 count++;
                 if (count >= 5) {

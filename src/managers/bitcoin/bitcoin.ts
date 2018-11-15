@@ -1,27 +1,35 @@
 import { EventEmitter } from 'events';
 import bind from 'bind-decorator';
-import { DIPeer, DIMessage, THostOptions, IPeer, IMessage } from 'interfaces';
+import * as version from './messages/version';
+
+enum Service {
+  NODE_NETWORK = 1,
+  NODE_GETUTXO = 2,
+  NODE_BLOOM = 4,
+  NODE_WITNESS = 8,
+  NODE_NETWORK_LIMITED = 1024,
+}
 
 type PeerError = {
-  peer: IPeer,
+  peer: Peer,
   error: Object
-}
+};
 
 type PeerMessage = {
-  peer: IPeer,
+  peer: Peer,
   command: string,
   data: Buffer
-}
+};
 
 export class BitcoinPeerManager extends EventEmitter {
 
-  private peerConstructor: DIPeer
-  private messageConstructor: DIMessage
-  private verackTimeout: NodeJS.Timeout
-  private connectTimeout: NodeJS.Timeout
-  private currentPeer: IPeer
-  private iterate: IterableIterator<void>
-  private message: IMessage
+  private peerConstructor: DIPeer;
+  private messageConstructor: DIMessage;
+  private verackTimeout: NodeJS.Timeout;
+  private connectTimeout: NodeJS.Timeout;
+  private currentPeer: Peer;
+  private iterate: IterableIterator<void>;
+  private message: Message;
 
   constructor(peerClass: DIPeer, messageClass: DIMessage) {
     super();
@@ -34,14 +42,17 @@ export class BitcoinPeerManager extends EventEmitter {
     console.log('connect');
     clearTimeout(this.connectTimeout);
 
-    this.message.putInt32(70015); // version
-    this.message.putInt64(1); // services
-    this.message.putInt64(Math.round(new Date().getTime() / 1000)); // timestamp
-    this.message.pad(26); // addr_me
-    this.message.pad(26); // addr_you
-    this.message.putInt64(0x1234); // nonce
-    this.message.putVarString('/btc-js-node:0.0.1/');
-    this.message.putInt32(10); // start_height
+    const message = new this.messageConstructor(version.order);
+    const bufferedMEs = version.template({
+      version: 70015,
+      services: Service.NODE_NETWORK,
+      timestamp: Math.round(new Date().getTime() / 1000),
+      addr_from: 0,
+      addr_recv: 0,
+      nonce: 0x1234,
+      user_agent: '/btc-js-node:0.0.1/',
+      start_height: 10
+    });
 
     console.log('Sending VERSION message');
     this.verackTimeout = setTimeout(() => {
@@ -54,7 +65,7 @@ export class BitcoinPeerManager extends EventEmitter {
       return clearTimeout(this.verackTimeout);
     });
 
-    this.currentPeer.send('version', this.message.raw());
+    this.currentPeer.send('version', message.make(bufferedMEs));
   }
 
   @bind
@@ -68,7 +79,7 @@ export class BitcoinPeerManager extends EventEmitter {
   }
 
   @bind
-  private handleEnd() { console.log('end') }
+  private handleEnd() { console.log('end'); }
 
   @bind
   private handleError(data: PeerError) {
@@ -83,8 +94,8 @@ export class BitcoinPeerManager extends EventEmitter {
 
   private *candidateGenerator(peerOptions: THostOptions[]) {
     for (let i = 0; i < peerOptions.length; i++) {
-      this.currentPeer = new this.peerConstructor(peerOptions[i])
-      yield this.connectToPeer() 
+      this.currentPeer = new this.peerConstructor(peerOptions[i]);
+      yield this.connectToPeer();
     }
   }
 
@@ -108,27 +119,26 @@ export class BitcoinPeerManager extends EventEmitter {
   }
 
   public connect(peerOptions: THostOptions[]) {
-    console.log('connect to peers ... ')
+    console.log('connect to peers ... ');
     this.iterate = this.candidateGenerator(peerOptions);
-    this.message = new this.messageConstructor()
     this.iterate.next();
   }
 
   public disconnect(cb: () => void) {
-    this.currentPeer.removeListener('close', this.handleClose)
+    this.currentPeer.removeListener('close', this.handleClose);
     const watchdog = setTimeout(() => {
       console.log('Peer didn\'t close gracefully; force-closing');
       this.currentPeer.destroy();
       this.iterate = null;
       this.currentPeer.removeAllListeners();
-      cb()
+      cb();
     }, 10000);
     watchdog.unref();
     this.currentPeer.once('close', () => {
       clearTimeout(watchdog);
       this.currentPeer.removeAllListeners();
       this.iterate = null;
-      cb()
+      cb();
     });
     this.currentPeer.disconnect();
   }

@@ -6,8 +6,12 @@
         "noImplicitAny": true,
         "sourceMap": true,
         "outDir": "./",
-        "baseUrl": "./src",
-        "experimentalDecorators": true
+        "baseUrl": "./",
+        "experimentalDecorators": true,
+        "typeRoots": [
+            "./typings",
+            "./node_modules/@types",
+        ],
     },
     "exclude": [
         "*.spec.ts"
