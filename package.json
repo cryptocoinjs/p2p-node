@@ -17,7 +17,8 @@
     "dev": "./node_modules/nodemon/bin/nodemon.js"
   },
   "dependencies": {
-    "bind-decorator": "^1.0.11"
+    "bind-decorator": "^1.0.11",
+    "int64-buffer": "^0.99.1007"
   },
   "devDependencies": {
     "@types/chai": "^4.1.7",

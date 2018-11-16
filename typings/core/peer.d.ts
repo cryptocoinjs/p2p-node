@@ -3,11 +3,11 @@ declare class Peer extends NodeJS.EventEmitter {
     disconnect(): void;
     destroy(): void;
     getUUID(): string;
-    send(command: string, data: Buffer, callback?: Function): void;
+    send(data: Buffer, callback?: Function): void;
 }
 
 declare interface DIPeer {
-    new(peerOptions: THostOptions): Peer;
+    new(peerOptions: THostOptions, magic: 0xD9B4BEF9 | 0xDAB5BFFA | 0x0709110B | 0xFEB4BEF9): Peer;
 }
 
 declare enum PeerStates {

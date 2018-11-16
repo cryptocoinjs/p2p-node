@@ -1,8 +1,9 @@
 import { BitcoinPeerManager, Peer, Message } from '../src';
+import { Magic } from '../src/constants/bitcoin.constants';
 import * as dns from 'dns';
 
 
-const peerManager = new BitcoinPeerManager(Peer, Message);
+const peerManager = new BitcoinPeerManager(Peer, Message, Magic.main );
 
 function findPeer(addrs: string[]) {
   peerManager.connect(addrs.map((addr) => ({ host: addr, port: 8333 })));
@@ -23,5 +24,7 @@ dns.resolve4('seed.btc.petertodd.org', function(err, addrs) {
     console.log(err);
     return;
   }
-  findPeer(addrs);
+  setTimeout(() => {
+    findPeer(addrs);
+  }, 5000);
 });

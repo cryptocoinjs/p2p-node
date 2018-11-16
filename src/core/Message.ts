@@ -11,8 +11,10 @@ export class Message {
   }
 
   private put(data: Buffer) {
-    data.copy(this.buffer, this.cursor);
-    this.cursor += data.length;
+    if (data) {
+      data.copy(this.buffer, this.cursor);
+      this.cursor += data.length;
+    }
     return this;
   }
 
@@ -27,13 +29,15 @@ export class Message {
   }
 
   public make(message: MessageData) {
+    this.reset();
     this.parseOrder.forEach((key) => {
       this.put(message[key]);
     });
     return this.raw();
   }
 
-  public parse() {
-    return {};
+  private reset() {
+    this.buffer = Buffer.alloc(10000);
+    this.cursor = 0;
   }
 }

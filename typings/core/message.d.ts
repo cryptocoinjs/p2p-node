@@ -6,7 +6,6 @@ declare type MessageData = {
 declare class Message {
     checksum(): Buffer;
     make(message: MessageData): Buffer;
-    parse(): Object;
 }
 
 declare interface DIMessage {
