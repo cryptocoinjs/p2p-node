@@ -1,8 +1,6 @@
-import { Int, Str } from '../../../protocol-types/bitcoin';
+import { Int } from '../../../protocol-types/bitcoin';
 
 const order = ['nonce'];
-
-const parseTemplate = {}
 
 function template(data: PingPongMessage) {
     return {

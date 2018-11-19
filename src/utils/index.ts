@@ -16,7 +16,7 @@ export const debounce = (f: Function, ms: number) => {
         const onComplete = () => {
             f.apply(this, args);
             timer = null;
-        }
+        };
 
         if (timer) {
             clearTimeout(timer);
@@ -26,4 +26,20 @@ export const debounce = (f: Function, ms: number) => {
     };
     internal.cancel = () => clearTimeout(timer);
     return internal;
+};
+
+export const getNonce = (): number => {
+    let num;
+    while (!num) {
+        num = Math.random() * Math.pow(2, 32);
+    }
+    return Math.floor(num);
+};
+
+export const hexToString: HexToString = (hexString) => {
+    let str = '';
+    for (let i = 0; i < hexString.length; i += 2) { 
+        str += String.fromCharCode(parseInt(hexString[i] + hexString[i + 1], 16)) 
+    }
+    return str;
 }
