@@ -1,6 +1,6 @@
 'use strict';
 
-import { Int, Str } from '../../../protocol-types/bitcoin';
+import { Int } from '../../../protocol-types/bitcoin';
 
 
 
@@ -9,34 +9,49 @@ export function parse(data: Buffer) {
     let pointer: number;
     const { value: count, offset } = Int.parseVarSizeInt(data);
     pointer = offset;
-    for (var i = 0; i < count; i++) {
-        let { value: date, offset: timeDelta } = Int.parseUint32(data, pointer);
-        const time = new Date(date * 1000);
-        pointer += timeDelta;
-        const { value: services, offset: servicesDelta}  = Int.parseUint64(data, pointer);
-        pointer += servicesDelta;
-        const { ips, offset: ipDelta } = parseIP(data, pointer);
-        pointer += ipDelta
-        const { value: port, offset: portDelta } = Int.parseUint16(data, pointer);
-        pointer += portDelta
-        addresses.push({
+    for (let i = 0; i < count; i++) {
+        const { value: addrData, offset: addrOffset } = parseAddr(data, pointer);
+        pointer += addrOffset;
+        addresses.push(addrData);
+    }
+    return addresses;
+}
+
+export function parseAddr(data: Buffer, pointer: number, isVersionMessage = false) {
+    const pointerInBytes = pointer / 8;
+    const addrData = data.slice(pointerInBytes);
+    let internalPointer = 0;
+    let time: Date;
+    if (!isVersionMessage) {
+        const { value: date, offset: timeDelta } = Int.parseUint32(addrData, internalPointer);
+        time = new Date(date * 1000);
+        internalPointer += timeDelta;
+    }
+    const { value: services, offset: servicesDelta } = Int.parseUint64(addrData, internalPointer);
+    internalPointer += servicesDelta;
+    const { ips, offset: ipDelta } = parseIP(addrData, internalPointer);
+    internalPointer += ipDelta;
+    const { value: port, offset: portDelta } = Int.parseUint16(addrData, internalPointer);
+    internalPointer += portDelta;
+    return {
+        value: {
             time,
             services,
             ips,
-            port
-        });
+            port,
+        },
+        offset: internalPointer,
     }
-    return addresses
 }
 
 function parseIP(data: Buffer, pointer = 0) {
-    const pointerInBytes = pointer / 8
+    const pointerInBytes = pointer / 8;
     const ipData = data.slice(pointerInBytes);
     let ipPointer = 0;
-    var ipv6 = [];
-    var ipv4 = [];
-    for (var a = 0; a < 8; a++) {
-        const buf = ipData.slice(ipPointer, 2 + ipPointer)
+    const ipv6 = [];
+    const ipv4 = [];
+    for (let a = 0; a < 8; a++) {
+        const buf = ipData.slice(ipPointer, 2 + ipPointer);
         ipPointer += 2;
         ipv6.push(buf.toString('hex'));
         if (a >= 6) {
@@ -50,5 +65,5 @@ function parseIP(data: Buffer, pointer = 0) {
             ipv4: ipv4.join('.')
         },
         offset: ipPointer * 8,
-    }
+    };
 }

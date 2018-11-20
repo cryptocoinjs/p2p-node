@@ -25,6 +25,6 @@ dns.resolve4('seed.btc.petertodd.org', function(err, addrs) {
     return;
   }
   setTimeout(() => {
-    findPeer(addrs);
+    findPeer(['54.169.37.203']);
   }, 5000);
 });
