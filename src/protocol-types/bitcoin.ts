@@ -1,5 +1,7 @@
 import { Int64LE } from 'int64-buffer';
 
+type TypedInt<Size extends number> = (size: Size) => (fill: number) => Buffer;
+
 const makeShrinkInt: TypedInt<number> = (size) => (fill) => {
     const byteSize = Math.floor(size / 8);
     const data = Buffer.alloc(byteSize);
@@ -12,29 +14,33 @@ const makeShrinkInt: TypedInt<number> = (size) => (fill) => {
 
 const makeTypedInt: TypedInt<8 | 16 | 32 | 64> = makeShrinkInt;
 
-const makeUint8: Int<8> = makeTypedInt(8);
-const makeUint16: Int<16> = makeTypedInt(16);
-const makeUint32: Int<32> = makeTypedInt(32);
-const makeUint64: Int<64> = makeTypedInt(64);
-const parseUint8: Buf<8> = (data, parseOffset = 0) => ({
+const makeUint8 = makeTypedInt(8);
+const makeUint16 = makeTypedInt(16);
+const makeUint32 = makeTypedInt(32);
+const makeUint64 = makeTypedInt(64);
+
+const parseUint8:(data: Buffer, pointer?: number) => ParseResult<number, 8> = (data: Buffer, parseOffset = 0) => ({
     offset: 8,
     value: data.readUIntLE(parseOffset, 1),
 });
-const parseUint16: Buf<16> = (data, parseOffset = 0) => {
+
+const parseUint16: (data: Buffer, pointer?: number) => ParseResult<number, 16> = (data: Buffer, parseOffset = 0) => {
     const parseOffsetInBytes = Math.floor(parseOffset / 8);
     return {
         offset: 16,
         value: data.readUIntLE(parseOffsetInBytes, 2),
     };
 };
-const parseUint32: Buf<32> = (data, parseOffset = 0) => {
+
+const parseUint32: (data: Buffer, pointer?: number) => ParseResult<number, 32> = (data: Buffer, parseOffset = 0) => {
     const parseOffsetInBytes = Math.floor(parseOffset / 8);
     return {
         offset: 32,
         value: data.readUIntLE(parseOffsetInBytes, 4),
     };
 };
-const parseUint64: Buf<64> = (data, parseOffset = 0) => {
+
+const parseUint64: (data: Buffer, pointer?: number) => ParseResult<number, 64> = (data: Buffer, parseOffset = 0) => {
     const parseOffsetInBytes = Math.floor(parseOffset / 8);
     const dataToParse = data.slice(parseOffsetInBytes);
     return {
@@ -43,11 +49,11 @@ const parseUint64: Buf<64> = (data, parseOffset = 0) => {
     };
 };
 
-const parseVarSizeInt: Buf<number> = (vatInt, parseOffset = 0) => {
+const parseVarSizeInt = (varInt: Buffer, parseOffset = 0) => {
     const parseOffsetInBytes = Math.floor(parseOffset / 8);
-    const { value, offset } = parseUint8(vatInt, parseOffsetInBytes);
+    const { value, offset } = parseUint8(varInt, parseOffsetInBytes);
     let baseOffset = 8;
-    let parser: Buf<8 | 16 | 32 | 64>;
+    let parser: (varInt: Buffer, pointer?: number) => ParseResult<number, 8 | 16 | 32 | 64>;
     switch (value) {
         case 0xFD:
             parser = parseUint16;
@@ -63,7 +69,7 @@ const parseVarSizeInt: Buf<number> = (vatInt, parseOffset = 0) => {
             baseOffset = 0;
             break;
     }
-    const data = vatInt.slice(baseOffset / 8);
+    const data = varInt.slice(baseOffset / 8);
     const invData = parser(data);
     return {
         value: invData.value,
@@ -90,19 +96,19 @@ const makeVarIntDestruct = (num: number) => {
     return {
         prefixBuff,
         valueBuff,
-    }
-}
+    };
+};
 
-const makeVarUint: Int<number> = (value) => {
-    const { prefixBuff, valueBuff } = makeVarIntDestruct(value)
+const makeVarUint = (value: number) => {
+    const { prefixBuff, valueBuff } = makeVarIntDestruct(value);
     if (prefixBuff) {
         const totalBufferLength = valueBuff.length + prefixBuff.length;
         return Buffer.concat([valueBuff, prefixBuff], totalBufferLength);
     }
     return valueBuff;
-}
+};
 
-export const Int: IntMapType = {
+export const Int = {
     makeUint8,
     makeUint16,
     makeUint32,
@@ -115,7 +121,7 @@ export const Int: IntMapType = {
     parseVarSizeInt,
 };
 
-const makeSizedStr: TypedChar<number> = (size) => (str) => {
+const makeSizedStr = (size: number) => (str: string) => {
     const data = Buffer.alloc(size);
     const maxIndex = Math.min(size, str.length);
     for (let i = 0; i < maxIndex; i++) {
@@ -124,9 +130,9 @@ const makeSizedStr: TypedChar<number> = (size) => (str) => {
     return data;
 };
 
-const makeVarStr: Char<number> = (str) => {
+const makeVarStr = (str: string) => {
     const num = str.length;
-    const { prefixBuff, valueBuff } = makeVarIntDestruct(num)
+    const { prefixBuff, valueBuff } = makeVarIntDestruct(num);
     const dataBuff = makeSizedStr(num)(str);
     if (prefixBuff) {
         const totalBufferLength = dataBuff.length + valueBuff.length + prefixBuff.length;
@@ -136,35 +142,35 @@ const makeVarStr: Char<number> = (str) => {
     return Buffer.concat([valueBuff, dataBuff], totalBufferLength);
 };
 
-const parseChars: BufToStr = (size) => (data, pointer = 0) => {
+const parseChars = (sizeInBytes: number) => (data: Buffer, pointer = 0) => {
     const parseOffsetInBytes = Math.floor(pointer / 8);
-    const value = Buffer.alloc(size / 8);
-    data.copy(value, 0, parseOffsetInBytes, parseOffsetInBytes + size / 8);
+    const value = Buffer.alloc(sizeInBytes);
+    data.copy(value, 0, parseOffsetInBytes, parseOffsetInBytes + sizeInBytes);
     return {
         value: value.toString('hex'),
-        offset: size,
+        offset: sizeInBytes * 8,
     };
-}
+};
 
-const parseVarStr: BufToVarStr = (data, pointer = 0) => {
+const parseVarStr = (data: Buffer, pointer = 0) => {
     const parseOffsetInBytes = Math.floor(pointer / 8);
     const internalData = Buffer.alloc(data.length - parseOffsetInBytes);
     data.copy(internalData, 0, parseOffsetInBytes);
     let internalPointer = 0;
     const { value: size, offset: sizeOffset } = Int.parseVarSizeInt(internalData, internalPointer);
     internalPointer += sizeOffset;
-    const { value: str, offset: strOffset } = parseChars(size * 8)(internalData, internalPointer)
+    const { value: str, offset: strOffset } = parseChars(size)(internalData, internalPointer);
     internalPointer += strOffset;
     return {
         value: str,
         offset: internalPointer,
-    }
-}
+    };
+};
 
-const makeStr12: Char<12> = makeSizedStr(12);
-const makeStr32: Char<32> = makeSizedStr(32);
+const makeStr12 = makeSizedStr(12);
+const makeStr32 = makeSizedStr(32);
 
-export const Str: StrMapType = {
+export const Str = {
     makeVarStr,
     makeSizedStr,
     makeStr12,

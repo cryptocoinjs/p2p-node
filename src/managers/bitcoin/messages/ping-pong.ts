@@ -1,6 +1,14 @@
 import { Int } from '../../../protocol-types/bitcoin';
 
+type PingPongMessage = {
+    nonce: number
+}
+
 const order = ['nonce'];
+
+const parseTemplate = {
+    nonce: Int.parseUint64
+};
 
 function template(data: PingPongMessage) {
     return {
@@ -13,6 +21,7 @@ export function makeBy(Message: DIMessage, data: PingPongMessage) {
     return message.make(template(data));
 }
 
-export function parse(data: Buffer) {
-    return Int.parseUint64(data).value;
+export function parse(Parser: DIParser, data: Buffer) {
+    const parser = new Parser(order);
+    return parser.parse(parseTemplate, data);
 }

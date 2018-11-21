@@ -8,12 +8,14 @@
     "peers",
     "cryptography"
   ],
-  "main": "./src",
+  "main": "dist/index.js",
+  "types": "typings",
   "scripts": {
-    "test": "mocha -r ts-node/register -r tsconfig-paths/register src/**/**.test.ts",
+    "test": "mocha -r ts-node/register -r tsconfig-paths/register ./test/**/**.test.ts",
     "build": "tsc",
-    "build-watch": "tsc --watch",
-    "start": "TS_NODE_FILES=true && node -r ts-node/register --inspect=5858 example/bitcoin.ts",
+    "build:watch": "tsc --watch",
+    "build:d": "tsc -d",
+    "start": "TS_NODE_FILES=true && node -r ts-node/register --inspect=5858 ./src/bitcoin.example.ts",
     "dev": "./node_modules/nodemon/bin/nodemon.js"
   },
   "dependencies": {
@@ -23,10 +25,12 @@
   "devDependencies": {
     "@types/chai": "^4.1.7",
     "@types/mocha": "^5.2.5",
+    "@types/sinon": "^5.0.7",
     "@types/node": "^10.12.5",
     "chai": "^4.2.0",
     "mocha": "^5.2.0",
     "nodemon": "^1.18.6",
+    "sinon": "^7.1.1",
     "ts-js-path-resolve": "^0.0.9",
     "ts-node": "^7.0.1",
     "tsconfig-paths": "^3.7.0",

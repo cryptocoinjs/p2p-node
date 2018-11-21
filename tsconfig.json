@@ -1,11 +1,11 @@
 {
     "compilerOptions": {
         "module": "commonjs",
-        "target": "es2017",
+        "target": "es6",
         "removeComments": true,
         "noImplicitAny": true,
-        "sourceMap": true,
-        "outDir": "./",
+        "sourceMap": false,
+        "outDir": "./dist",
         "baseUrl": "./",
         "experimentalDecorators": true,
         "typeRoots": [
@@ -14,6 +14,8 @@
         ],
     },
     "exclude": [
-        "*.spec.ts"
+        "*.spec.ts",
+        "*.test.ts",
+        "test"
     ]
 }

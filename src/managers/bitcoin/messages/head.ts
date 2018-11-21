@@ -1,5 +1,13 @@
 import { Int, Str } from '../../../protocol-types/bitcoin';
-import { messageChecksum } from '../../../utils';
+import { messageChecksum, hexToString } from '../../../utils';
+
+type messageHead = {
+    magic: number,
+    command: string,
+    length: number,
+    checksum: Buffer,
+    payload: Buffer
+}
 
 const order = ['magic', 'command', 'length', 'checksum', 'payload'];
 
@@ -16,33 +24,33 @@ export function makeBy(Message: DIMessage, data: messageHead) {
     return message.make(template(data));
 }
 
-export function parse(data: Buffer) {
-    const msgLen = data.readUInt32LE(16);
+const parseOrder = ['magic', 'command', 'length', 'checksum'];
 
-    // Get command
-    const commands = [];
-    for (let j = 0; j < 12; j++) {
-        const s = data[4 + j];
-        if (s > 0) {
-            commands.push(String.fromCharCode(s));
-        }
-    }
-    const cmd = commands.join('');
-    let payload: Buffer;
+const parseTemplate = {
+    magic: Int.parseUint32,
+    command: Str.parseChars(12),
+    length: Int.parseUint32,
+    checksum: Int.parseUint32,
+};
 
-    const checksum = data.readUInt32BE(20);
-    if (msgLen > 0) {
-        payload = Buffer.alloc(msgLen);
-        data.copy(payload, 0, 24);
-        const checksumCalc = messageChecksum(payload);
-        if (checksum != checksumCalc.readUInt32BE(0)) {
-            console.log('Supplied checksum of ' + checksum.toString(16) + ' does not match calculated checksum of ' + checksumCalc.toString('hex'));
+export function parse(Parser: DIParser, data: Buffer) {
+    const parser = new Parser(parseOrder);
+    const { command: hexCmd, length, checksum } = parser.parse(parseTemplate, data);
+    const command = hexToString(String(hexCmd));
+    if (length > 0) {
+        const payload = Buffer.alloc(<number>length);
+        data.copy(payload, 0, parser.currentCursor / 8);
+        const checksumCalc = messageChecksum(payload).readUIntLE(0, 4);
+        if (+checksum != +checksumCalc) {
+            console.log('Supplied checksum of ' + checksum + ' does not match calculated checksum of ' + checksum);
         }
-    } else {
-        payload = Buffer.alloc(0);
+        return {
+            command: command,
+            bufferPayload: payload
+        };
     }
     return {
-        command: cmd,
-        bufferPayload: payload
+        command: command,
+        bufferPayload: Buffer.alloc(0)
     };
 }

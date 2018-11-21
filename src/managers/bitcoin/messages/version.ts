@@ -1,6 +1,25 @@
 import { Int, Str } from '../../../protocol-types/bitcoin';
-import { parseAddr } from './addr';
 import { hexToString } from '../../../utils';
+import { parseIP } from '../helpers';
+
+declare enum Service {
+    NODE_NETWORK = 1,
+    NODE_GETUTXO = 2,
+    NODE_BLOOM = 4,
+    NODE_WITNESS = 8,
+    NODE_NETWORK_LIMITED = 1024,
+}
+
+type versionMessageData = {
+    version: number,
+    services: Service,
+    timestamp: number,
+    addr_recv: Buffer,
+    addr_from: Buffer,
+    nonce: number
+    user_agent: string,
+    start_height: number,
+}
 
 const order = ['version', 'services', 'timestamp', 'addr_recv', 'addr_from', 'nonce', 'user_agent', 'start_height'];
 
@@ -22,38 +41,35 @@ export function makeBy(Message: DIMessage, data: versionMessageData) {
     return message.make(template(data));
 }
 
-export function parse(data: Buffer) {
-    let pointer = 0;
-    let relay: Boolean
-    const { value: version, offset: versionDelta } = Int.parseUint32(data);
-    pointer += versionDelta;
-    const { value: services, offset: servicesDelta } = Int.parseUint64(data, pointer);
-    pointer += servicesDelta;
-    const { value: timestamp, offset: timestampDelta } = Int.parseUint64(data, pointer);
-    pointer += timestampDelta;
-    const { value: addr_recv, offset: addr_recvOffset } = parseAddr(data, pointer, true)
-    pointer += addr_recvOffset;
-    const { value: addr_from, offset: addr_fromOffset } = parseAddr(data, pointer, true)
-    pointer += addr_fromOffset;
-    const { value: nonce, offset: nonceDelta } = Int.parseUint64(data, pointer);
-    pointer += nonceDelta;
-    const { value: user_agent, offset: user_agentDelta } = Str.parseVarStr(data, pointer);
-    pointer += user_agentDelta;
-    const { value: start_height, offset: start_heightDelta } = Int.parseUint32(data, pointer);
-    pointer += start_heightDelta;
-    if (version > 7001) {
-        pointer += 1;
-        relay = Boolean(data[pointer])
+const perserForAddr = {
+    order: ['services', 'ips', 'port'],
+    template: {
+        services: Int.parseUint64,
+        ips: parseIP,
+        port: Int.parseUint16,
     }
-    return {
-        version,
-        services,
-        timestamp,
-        addr_recv,
-        addr_from,
-        nonce,
-        user_agent: hexToString(user_agent),
-        start_height,
+};
+
+const parseTemplate = {
+    version: Int.parseUint32,
+    services: Int.parseUint64,
+    timestamp: Int.parseUint64,
+    addr_recv: perserForAddr,
+    addr_from: perserForAddr,
+    nonce: Int.parseUint64,
+    user_agent: Str.parseVarStr,
+    start_height: Int.parseUint32,
+};
+
+export function parse(Parser: DIParser, data: Buffer) {
+    let relay: Boolean;
+    const versionParser = new Parser(order);
+    const result = versionParser.parse(parseTemplate, data);
+    if (result.version > 7001) {
+        relay = Boolean(data[versionParser.currentCursor + 1]);
+    }
+    return Object.assign(result, {
+        user_agent: hexToString(<string>result.user_agent),
         relay,
-    }
+    });
 }

@@ -1,5 +1,5 @@
 
-import { dSha256 } from 'core';
+import { dSha256 } from '../../src/utils';
 import { expect } from 'chai';
 import 'mocha';
 

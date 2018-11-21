@@ -68,8 +68,6 @@ export class Peer extends EventEmitter {
 
   @bind
   protected handleData(data: Buffer) {
-
-    // Add data to incoming buffer
     if (data.length + this.inboundCursor > this.inbound.length) {
       this.emit('error', 'Peer exceeded max receiving buffer');
       this.inboundCursor = this.inbound.length + 1;

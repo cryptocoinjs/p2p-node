@@ -1,23 +1,23 @@
 import { Int, Str } from '../../../protocol-types/bitcoin';
 import { hexToString } from '../../../utils';
 
-const order = ['count', 'inventory'];
-const inventoryOrder = ['type', 'hash'];
-
 type InventoryDataMessage = {
     type: number,
     hash: string,
 }
 
+const order = ['count', 'inventory'];
+const inventoryOrder = ['type', 'hash'];
+
 function template(data: InventoryDataMessage[], Message: DIMessage) {
     const message = new Message(inventoryOrder);
     let inventoriesLength = 0;
     const inventories = data.map((inventor: InventoryDataMessage) => {
-        const invBuffer = message.make(inventoryTemplate(inventor))
+        const invBuffer = message.make(inventoryTemplate(inventor));
         inventoriesLength += invBuffer.length;
         return invBuffer;
-    })
-    const inventory = Buffer.concat(inventories, inventoriesLength)
+    });
+    const inventory = Buffer.concat(inventories, inventoriesLength);
     return {
         count: Int.makeVarUint(data.length),
         inventory,

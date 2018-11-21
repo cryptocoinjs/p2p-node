@@ -10,33 +10,59 @@ import { messageChecksum, debounce, getNonce } from '../../utils';
 import { Service } from './constants';
 import { Magic } from '../../constants/bitcoin.constants';
 
+type PeerError = {
+  peer: Peer,
+  error: Object
+};
+
+
+type PeerMessage = {
+  peer: Peer,
+  data: Buffer
+};
+
+type PayloadParserByCommands = {
+  [props: string]: (Parser: DIParser, bufferPayload: Buffer) => ParseOutput | ParseOutput[]
+};
+
+const bitcoinCommands = {
+  version: 'version',
+  verack: 'verack',
+  inv: 'inv',
+  ping: 'ping',
+  pong: 'pong',
+  addr: 'addr',
+  getdata: 'getdata',
+};
+
 const payloadParserByCommands: PayloadParserByCommands = {
-  version: function (bufferPayload: Buffer) { return version.parse(bufferPayload); },
-  verack: function (bufferPayload: Buffer) { return bufferPayload.toString('hex'); },
-  inv: function (bufferPayload: Buffer) { return inv.parse(bufferPayload); },
-  ping: function (bufferPayload: Buffer) { return pingPong.parse(bufferPayload); },
-  pong: function (bufferPayload: Buffer) { return pingPong.parse(bufferPayload); },
-  addr: function (bufferPayload: Buffer) { return addr.parse(bufferPayload); },
+  [bitcoinCommands.version]: version.parse,
+  [bitcoinCommands.inv]: inv.parse,
+  [bitcoinCommands.ping]: pingPong.parse,
+  [bitcoinCommands.pong]: pingPong.parse,
+  [bitcoinCommands.addr]: addr.parse,
 };
 
 export class BitcoinPeerManager extends EventEmitter {
 
   private Peer: DIPeer;
   private Message: DIMessage;
+  private Parser: DIParser;
   private verackTimeout: NodeJS.Timeout;
   private connectTimeout: NodeJS.Timeout;
   private pingPongTimeout: NodeJS.Timeout;
   private terminateTimeout: NodeJS.Timeout;
-  private debouncedPing: CacelableFunction;
+  private debouncedPing: CancelableFunction;
   private currentPeer: Peer;
   private iterate: IterableIterator<void>;
   private magicBytes: Magic;
   private nonce: number;
 
-  constructor(peerClass: DIPeer, messageClass: DIMessage, magic: Magic = Magic.main) {
+  constructor(peerClass: DIPeer, messageClass: DIMessage, parserClass: DIParser, magic: Magic = Magic.main) {
     super();
     this.Peer = peerClass;
     this.Message = messageClass;
+    this.Parser = parserClass;
     this.magicBytes = magic;
     this.subscribe();
   }
@@ -48,7 +74,7 @@ export class BitcoinPeerManager extends EventEmitter {
 
     this.nonce = getNonce();
     this.trackVerack();
-    this.once('version', () => this.send(null, 'verack'));
+    this.once(bitcoinCommands.version, () => this.send(null, bitcoinCommands.verack));
     this.debouncedPing = debounce(this.updatePing, 30000);
 
     const versionPayload = version.makeBy(this.Message, {
@@ -70,7 +96,7 @@ export class BitcoinPeerManager extends EventEmitter {
       return this.currentPeer.destroy();
     }, 10000);
 
-    this.once('verack', () => {
+    this.once(bitcoinCommands.verack, () => {
       console.log('VERACK received; this peer is active now');
       return clearTimeout(this.verackTimeout);
     });
@@ -78,25 +104,25 @@ export class BitcoinPeerManager extends EventEmitter {
 
   private subscribe() {
 
-    this.on('ping', ({ bufferPayload }) => {
-      this.send(bufferPayload, 'pong');
+    this.on(bitcoinCommands.ping, ({ bufferPayload }) => {
+      this.send(bufferPayload, bitcoinCommands.pong);
     });
 
-    this.on('pong', ({ payload: nonce }) => {
-      if (this.nonce !== nonce) {
+    this.on(bitcoinCommands.pong, ({ payload }) => {
+      if (this.nonce !== payload.nonce) {
         this.terminateCurrentPeer();
       }
     });
 
-    this.on('inv', ({ payload: invData, bufferPayload }) => {
+    this.on(bitcoinCommands.inv, ({ payload: invData, bufferPayload }) => {
       // const getDataMsg = getData.makeBy(this.Message, invData)
       // currently get all info about txs and blocks
       // TODO: add filter
-      this.send(bufferPayload, 'getdata');
+      this.send(bufferPayload, bitcoinCommands.getdata);
     });
   }
 
-  private send(payloadData: Buffer, command = 'version') {
+  private send(payloadData: Buffer, command = bitcoinCommands.version) {
     console.log(`Sending ${command.toUpperCase()} message`);
     const message = head.makeBy(this.Message, {
       magic: this.magicBytes,
@@ -111,7 +137,7 @@ export class BitcoinPeerManager extends EventEmitter {
   private ping() {
     console.log('ping');
     const pongMsg = pingPong.makeBy(this.Message, { nonce: this.nonce });
-    this.send(pongMsg, 'ping');
+    this.send(pongMsg, bitcoinCommands.ping);
   }
 
   @bind
@@ -139,7 +165,7 @@ export class BitcoinPeerManager extends EventEmitter {
 
   @bind
   private handleClose() {
-    console.log('handleClose')
+    console.log('handleClose');
     setImmediate(() => {
       this.clearTimers();
       this.iterate.next();
@@ -148,7 +174,7 @@ export class BitcoinPeerManager extends EventEmitter {
 
   @bind
   private clearTimers() {
-    console.log('clearTimers')
+    console.log('clearTimers');
     clearTimeout(this.connectTimeout);
     clearTimeout(this.verackTimeout);
     clearTimeout(this.pingPongTimeout);
@@ -167,12 +193,12 @@ export class BitcoinPeerManager extends EventEmitter {
 
   @bind
   private handleMessage({ data }: PeerMessage) {
-    console.log('handleMessage')
+    console.log('handleMessage');
     this.debouncedPing();
-    const { command, bufferPayload } = head.parse(data);
-    const payload = payloadParserByCommands[command] ? payloadParserByCommands[command].call(this, bufferPayload) : '';
+    const { command, bufferPayload } = head.parse(this.Parser, data);
+    const payload = payloadParserByCommands[command] ? payloadParserByCommands[command](this.Parser, bufferPayload) : '';
     console.log(`emit command ${command}, payload: ${JSON.stringify(payload)}`);
-    this.emit(`${command}`, {
+    this.emit(command, {
       payload,
       bufferPayload,
     });
@@ -212,7 +238,7 @@ export class BitcoinPeerManager extends EventEmitter {
 
     this.currentPeer.removeListener('close', this.handleClose);
     this.clearTimers();
-    
+
     const watchdog = setTimeout(() => {
       console.log('disconnect -> Peer didn\'t close gracefully; force-closing');
       this.currentPeer.destroy();
@@ -222,7 +248,7 @@ export class BitcoinPeerManager extends EventEmitter {
     }, 10000);
     watchdog.unref();
     this.currentPeer.once('close', () => {
-      console.log('disconnect -> close')
+      console.log('disconnect -> close');
       clearTimeout(watchdog);
       this.currentPeer.removeAllListeners();
       this.iterate = null;
